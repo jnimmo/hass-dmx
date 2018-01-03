@@ -54,3 +54,7 @@ Device configuration variables:
 Supported features:
 - Transition time can be specified through services to fade to a colour (for RGB fixtures) or value. This currently is set to run at 40 frames per second. Multiple fades at the same time seem to be possible.
 - Brightness: Once a channel is turned on brightness can be controlled through the Home Assistant interface.
+
+Limitations:
+- Currently hard-coded to only address a single DMX universe
+- DMX frames must send values for all channels in a universe. If you have other channels which are controlled by a different device or lighting desk, set Home Assistant to default to 0 values; and set your Art-Net device to merge on highest value rather than most recent update. This means channels could be controlled from either the desk or Home Assistant.
