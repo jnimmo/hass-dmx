@@ -1,15 +1,22 @@
 """
 Home Assistant support for Art-Net/DMX lights over IP
+
+Date:     2018-01-03
+Homepage: https://github.com/jnimmo/hass-artnet
+Author:   James Nimmo
+
 """
 import asyncio
 import logging
 import socket
 from struct import pack
 
+from homeassistant.core import callback
 from homeassistant.const import (CONF_DEVICES, CONF_HOST, CONF_NAME, CONF_PORT, CONF_TYPE)
-from homeassistant.components.light import (ATTR_BRIGHTNESS, ATTR_RGB_COLOR, ATTR_TRANSITION,
+from homeassistant.components.light import (ATTR_BRIGHTNESS, ATTR_ENTITY_ID, ATTR_RGB_COLOR, ATTR_TRANSITION,
                                             Light, PLATFORM_SCHEMA, SUPPORT_BRIGHTNESS,
                                             SUPPORT_RGB_COLOR, SUPPORT_TRANSITION)
+from homeassistant.config import load_yaml_config_file
 import homeassistant.helpers.config_validation as cv
 import homeassistant.util.color as color_util
 import voluptuous as vol
@@ -22,44 +29,56 @@ CONF_CHANNEL = 'channel'
 CONF_DMX_CHANNELS = 'dmx_channels'
 CONF_DEFAULT_COLOR = 'default_rgb'
 CONF_DEFAULT_LEVEL = 'default_level'
+CONF_FADE_TIME = 'fade_time'
 
 # Light types
 CONF_LIGHT_TYPE_DIMMER = 'dimmer'
 CONF_LIGHT_TYPE_RGB = 'rgb'
-CONF_LIGHT_TYPES = [CONF_LIGHT_TYPE_DIMMER, CONF_LIGHT_TYPE_RGB]
+CONF_LIGHT_TYPE_SWITCH = 'switch'
+CONF_LIGHT_TYPES = [CONF_LIGHT_TYPE_DIMMER, CONF_LIGHT_TYPE_RGB, CONF_LIGHT_TYPE_SWITCH]
 
 # Number of channels used by each light type
 CHANNEL_COUNT_MAP, FEATURE_MAP, COLOR_MAP = {}, {}, {}
 CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_DIMMER] = 1
 CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_RGB] = 3
+CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_SWITCH] = 1
 
 # Features supported by light types
 FEATURE_MAP[CONF_LIGHT_TYPE_DIMMER] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION)
 FEATURE_MAP[CONF_LIGHT_TYPE_RGB] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION | SUPPORT_RGB_COLOR)
+FEATURE_MAP[CONF_LIGHT_TYPE_SWITCH] = ()
 
 # Default color for each light type if not specified in configuration
 COLOR_MAP[CONF_LIGHT_TYPE_DIMMER] = None
 COLOR_MAP[CONF_LIGHT_TYPE_RGB] = [255, 255, 255]
+COLOR_MAP[CONF_LIGHT_TYPE_SWITCH] = None
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_HOST): cv.string,
     vol.Required(CONF_DMX_CHANNELS): vol.All(vol.Coerce(int), vol.Range(min=1, max=512)),
     vol.Optional(CONF_PORT): cv.port,
-    vol.Optional(CONF_DEFAULT_LEVEL): cv.byte,
+    vol.Required(CONF_DEFAULT_LEVEL): cv.byte,
     vol.Required(CONF_DEVICES): vol.All(cv.ensure_list, [
         {
             vol.Required(CONF_CHANNEL): vol.All(vol.Coerce(int), vol.Range(min=1, max=512)),
             vol.Required(CONF_NAME): cv.string,
             vol.Optional(CONF_TYPE): vol.In(CONF_LIGHT_TYPES),
             vol.Optional(CONF_DEFAULT_LEVEL): cv.byte,
-            vol.Optional(CONF_DEFAULT_COLOR): vol.All(vol.ExactSequence((cv.byte, cv.byte, cv.byte)),
-                vol.Coerce(tuple)),
+            vol.Optional(CONF_DEFAULT_COLOR): vol.All(
+                vol.ExactSequence((cv.byte, cv.byte, cv.byte)), vol.Coerce(tuple)),
+            vol.Optional(CONF_FADE_TIME): vol.All(vol.Coerce(int), vol.Range(min=0, max=60)),
+
         }
     ]),
 })
 
+SET_FADE_TIME_SCHEMA = vol.Schema({
+    vol.Required(ATTR_ENTITY_ID): cv.entity_ids,
+    vol.Required(CONF_FADE_TIME): vol.All(vol.Coerce(int), vol.Range(min=0, max=60)),
+})
+
 @asyncio.coroutine
-def async_setup_platform(hass, config, add_devices, discovery_info=None):
+def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
     host = config.get(CONF_HOST)
     port = config.get(CONF_PORT, 6454)
 
@@ -70,7 +89,10 @@ def async_setup_platform(hass, config, add_devices, discovery_info=None):
     if not dmx:
         dmx = DMXGateway(host, port, overall_default_level, config[CONF_DMX_CHANNELS])
 
-    add_devices(ArtnetLight(light, dmx) for light in config[CONF_DEVICES])
+    lights = (ArtnetLight(light, dmx) for light in config[CONF_DEVICES])
+    async_add_devices(lights)
+
+    return True
 
 class ArtnetLight(Light):
     """Representation of an Artnet Light."""
@@ -79,11 +101,12 @@ class ArtnetLight(Light):
         """Initialize an artnet Light."""
         self._controller = controller
         self._channel = light[CONF_CHANNEL] # Move to using _channels
-        self._type = light[CONF_TYPE]
+        self._type = light.get(CONF_TYPE, CONF_LIGHT_TYPE_DIMMER)
         self._channel_count = int(CHANNEL_COUNT_MAP.get(self._type, 1))
         self._name = light['name']
         self._channels = [channel for channel in range(self._channel, self._channel + self._channel_count)]
         self._features = FEATURE_MAP.get(self._type)
+        self._fade_time = light.get(CONF_FADE_TIME, 0)
 
         if CONF_DEFAULT_COLOR in light:
             tmpColor = light[CONF_DEFAULT_COLOR]
@@ -120,6 +143,7 @@ class ArtnetLight(Light):
     def device_state_attributes(self):
         data = {}
         data['dmx_channels'] = self._channels
+        data[CONF_FADE_TIME] = self._fade_time
         return data
 
     @property
@@ -141,6 +165,14 @@ class ArtnetLight(Light):
     def should_poll(self):
         return False
 
+    @property
+    def fade_time(self):
+        return self._fade_time
+
+    @fade_time.setter
+    def fade_time(self, value):
+        self._fade_time = value
+
     @asyncio.coroutine
     def async_turn_on(self, **kwargs):
         """Instruct the light to turn on.
@@ -153,20 +185,22 @@ class ArtnetLight(Light):
         if ATTR_RGB_COLOR in kwargs:
             self._rgb = kwargs[ATTR_RGB_COLOR]
 
+        # To allow brightness control and the color selector, the RGB values must be scaled with brightness.
         if self._type == CONF_LIGHT_TYPE_RGB:
             scaled_rgb = scale_rgb_to_brightness(self._rgb, self._brightness)
             logging.debug('Setting light %s RGB to %s, scaled to %s', self._name, self._rgb, scaled_rgb)
-            yield from self._controller.fade_channels(self._channels, scaled_rgb, int(kwargs.get(ATTR_TRANSITION, 0)))
+            yield from self._controller.fade_channels(self._channels, scaled_rgb, int(kwargs.get(ATTR_TRANSITION, self._fade_time)))
         else:
             # Use fade channels for single channel fixtures
-            yield from self._controller.fade_channels(self._channels, self._brightness, int(kwargs.get(ATTR_TRANSITION, 0)))
+            yield from self._controller.fade_channels(self._channels, self._brightness, int(kwargs.get(ATTR_TRANSITION, self._fade_time)))
 
         self.async_schedule_update_ha_state()
 
     @asyncio.coroutine
     def async_turn_off(self, **kwargs):
-        """Instruct the light to turn off."""
-        yield from self._controller.fade_channels(self._channels, 0, kwargs.get(ATTR_TRANSITION, 0))
+        """Instruct the light to turn off. If a transition time has been specified in seconds
+        the controller will fade."""
+        yield from self._controller.fade_channels(self._channels, 0, int(kwargs.get(ATTR_TRANSITION, self._fade_time)))
         self._state = False
         self.async_schedule_update_ha_state()
 
