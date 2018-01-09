@@ -22,7 +22,7 @@ light:
       - channel: 1
         name: House lights
         type: dimmer
-        fade_time: 3
+        transition: 3
       - channel: 2
         name: Hall lights
         type: dimmer
@@ -30,7 +30,7 @@ light:
       - channel: 3
         name: Stair lights
         type: dimmer
-        fade_time: 3
+        transition: 3
       - channel: 4
         type: rgb
         name: Entrance LED Strip
@@ -49,10 +49,10 @@ Configuration variables:
 Device configuration variables:
 - **channel** (*Required*): The base DMX channel for the light (1-512)
 - **name** (*Required*): Friendly name for the light (will also be used for the entity_id)
-- **type** (*Required*): 'dimmer' (single channel) or 'rgb' (three channel)
+- **type** (*Required*): 'dimmer' (single channel), 'rgb' (three channel), 'rgbw' (four channel) or 'switch' (single channel with no brightness adjustments)
 - **default_level** (*Optional*): Default level to give to Home Assistant for the light (0-255)
 - **default_rgb** (*Optional*): Default colour to give to Home Assistant for the light in the format [R,G,B]
-- **fade_time** (*Optional*): Set a default fade time for transitions. Transition times specified through the turn_on / turn_off service calls in Home Assistant will override this behaviour. 
+- **transition** (*Optional*): Set a default fade time for transitions. Transition times specified through the turn_on / turn_off service calls in Home Assistant will override this behaviour. 
 
 Supported features:
 - Transition time can be specified through services to fade to a colour (for RGB fixtures) or value. This currently is set to run at 40 frames per second. Multiple fades at the same time seem to be possible.
