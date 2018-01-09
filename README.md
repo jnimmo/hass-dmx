@@ -61,3 +61,6 @@ Supported features:
 Limitations:
 - Currently hard-coded to only address a single DMX universe
 - DMX frames must send values for all channels in a universe. If you have other channels which are controlled by a different device or lighting desk, set Home Assistant to default to 0 values; and set your Art-Net device to merge on highest value rather than most recent update. This means channels could be controlled from either the desk or Home Assistant.
+
+
+**Art-Net™ Designed by and Copyright Artistic Licence Holdings Ltd"**
