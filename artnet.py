@@ -1,7 +1,7 @@
 """
 Home Assistant support for Art-Net/DMX lights over IP
 
-Date:     2018-01-03
+Date:     2018-01-10
 Homepage: https://github.com/jnimmo/hass-artnet
 Author:   James Nimmo
 
@@ -83,7 +83,7 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
     port = config.get(CONF_PORT, 6454)
 
     # Send the specified default level to pre-fill the channels with
-    overall_default_level = config.get(CONF_DEFAULT_LEVEL)
+    overall_default_level = config.get(CONF_DEFAULT_LEVEL,0)
 
     dmx = None
     if not dmx:
@@ -100,32 +100,27 @@ class ArtnetLight(Light):
     def __init__(self, light, controller):
         """Initialize an artnet Light."""
         self._controller = controller
-        self._channel = light[CONF_CHANNEL] # Move to using _channels
-        self._type = light.get(CONF_TYPE, CONF_LIGHT_TYPE_DIMMER)
-        self._channel_count = int(CHANNEL_COUNT_MAP.get(self._type, 1))
-        self._name = light['name']
+
+        # Fixture configuration
+        self._channel = light.get(CONF_CHANNEL)
+        self._name = light.get(CONF_NAME)
+        self._type = light.get(CONF_TYPE, CONF_LIGHT_TYPE_DIMMER) 
+        self._fade_time = light.get(CONF_TRANSITION, 0) 
+        self._brightness = light.get(CONF_DEFAULT_LEVEL, controller.default_level)
+        self._rgb = light.get(CONF_DEFAULT_COLOR, COLOR_MAP.get(self._type))
+
+        # Apply maps and calculations
+        self._channel_count = CHANNEL_COUNT_MAP.get(self._type, 1)
         self._channels = [channel for channel in range(self._channel, self._channel + self._channel_count)]
         self._features = FEATURE_MAP.get(self._type)
-        self._fade_time = light.get(CONF_TRANSITION, 0)
 
-        if CONF_DEFAULT_COLOR in light:
-            tmpColor = light[CONF_DEFAULT_COLOR]
-            scale = max(tmpColor)/255
-            self._rgb = (int(tmpColor[0]/scale), 
-                         int(tmpColor[1]/scale),
-                         int(tmpColor[2]/scale))
-            self._brightness = max(tmpColor)
-        else:
-            self._rgb = COLOR_MAP.get(self._type)
+        # Brightness needs to be set to the maximum default RGB level, then scale up the RGB values to what HA uses
+        if self._rgb:
+            self._brightness = max(self._rgb)
+            self._rgb = scale_rgb_to_brightness(self._rgb, self._brightness)
 
-        # Synchronise state of channels (without sending any commands) with Artnet wrapper
-        if self._type == CONF_LIGHT_TYPE_RGB:
-            scaled_rgb = scale_rgb_to_brightness(self._rgb, self._brightness)
-            self._controller.set_channel_rgb(self._channel, scaled_rgb, False)
-        else:
-            if CONF_DEFAULT_LEVEL in light:
-                self._controller.set_channel(self._channel, light[CONF_DEFAULT_LEVEL], False)
-            self._brightness = self._controller.get_channel_level(self._channel)
+        logging.debug("Setting default values for '%s' to %s", self._name, repr(self.dmx_values))
+        self._controller.set_channels(self._channels, self.dmx_values, send_immediately=False)
 
         self._state = self._brightness >= 0
   
@@ -144,6 +139,7 @@ class ArtnetLight(Light):
         data = {}
         data['dmx_channels'] = self._channels
         data[CONF_TRANSITION] = self._fade_time
+        data['dmx_values'] = self.dmx_values
         return data
 
     @property
@@ -155,6 +151,20 @@ class ArtnetLight(Light):
     def rgb_color(self):
         """Return the RBG color value."""
         return self._rgb
+
+    @property
+    def dmx_values(self):
+        # Select which values to send over DMX
+
+        if self._type == CONF_LIGHT_TYPE_RGB:
+            # Scale the RGB colour value to the selected brightness
+            return scale_rgb_to_brightness(self._rgb, self._brightness)
+        elif self._type == CONF_LIGHT_TYPE_RGBW:
+            # Split the white component out from the scaled RGB values
+            scaled_rgb = scale_rgb_to_brightness(self._rgb, self._brightness)
+            return color_rgb_to_rgbw(*scaled_rgb)
+        else:
+            return self._brightness
 
     @property
     def supported_features(self):
@@ -179,7 +189,6 @@ class ArtnetLight(Light):
         Move to using one method on the DMX class to set/fade either a single channel or group of channels 
         """
         self._state = True
-        values = None
         transition =  kwargs.get(ATTR_TRANSITION, self._fade_time)
 
         # Update state from service call
@@ -189,19 +198,8 @@ class ArtnetLight(Light):
         if ATTR_RGB_COLOR in kwargs:
             self._rgb = kwargs[ATTR_RGB_COLOR]
 
-        # Select which values to send over DMX
-        if self._type == CONF_LIGHT_TYPE_RGB:
-            # Scale the RGB colour value to the selected brightness
-            values = scale_rgb_to_brightness(self._rgb, self._brightness)
-        elif self._type == CONF_LIGHT_TYPE_RGBW:
-            # Split the white component out from the scaled RGB values
-            scaled_rgb = scale_rgb_to_brightness(self._rgb, self._brightness)
-            values = color_rgb_to_rgbw(*scaled_rgb)
-        else:
-            values = self._brightness
-
-        logging.debug("Setting light '%s' to values %s with transition time %i", self._name, repr(values), transition)
-        yield from self._controller.fade_channels(self._channels, values, transition)
+        logging.debug("Setting light '%s' to values %s with transition time %i", self._name, repr(self.dmx_values), transition)
+        yield from self._controller.set_channels(self._channels, self.dmx_values, transition=transition)
 
         self.async_schedule_update_ha_state()
 
@@ -210,8 +208,9 @@ class ArtnetLight(Light):
         """Instruct the light to turn off. If a transition time has been specified in seconds
         the controller will fade."""
         transition = kwargs.get(ATTR_TRANSITION, self._fade_time)
+
         logging.debug("Turning off '%s' with transition  %i", self._name, transition)
-        yield from self._controller.fade_channels(self._channels, 0, transition)
+        yield from self._controller.set_channels(self._channels, 0, transition=transition)
         self._state = False
         self.async_schedule_update_ha_state()
 
@@ -274,10 +273,10 @@ class DMXGateway(object):
         logging.debug("Sending Art-Net frame")
 
     @asyncio.coroutine
-    def fade_channels(self, channels, value, seconds, fps=40):
+    def set_channels(self, channels, value, transition=0, fps=40, send_immediately=True):
         original_values = self._channels[:]
         # Minimum of one frame for a snap transition
-        number_of_frames = max(int(seconds*fps),1)
+        number_of_frames = max(int(transition*fps),1)
 
         # Single value for standard channels, RGB channels will have 3 or more
         value_arr = [value]
@@ -297,7 +296,7 @@ class DMXGateway(object):
                     self._channels[channel-1] = next_value
                     values_changed = True
 
-            if values_changed:
+            if values_changed and send_immediately:
                 self.send()
             
             yield from asyncio.sleep(1./fps)
