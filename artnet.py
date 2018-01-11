@@ -13,9 +13,9 @@ from struct import pack
 
 from homeassistant.const import (CONF_DEVICES, CONF_HOST, CONF_NAME, CONF_PORT, CONF_TYPE)
 from homeassistant.components.light import (ATTR_BRIGHTNESS, ATTR_ENTITY_ID, ATTR_RGB_COLOR,
-                                            ATTR_TRANSITION, Light,
+                                            ATTR_TRANSITION, ATTR_WHITE_VALUE, Light,
                                             PLATFORM_SCHEMA, SUPPORT_BRIGHTNESS,
-                                            SUPPORT_RGB_COLOR,
+                                            SUPPORT_RGB_COLOR, SUPPORT_WHITE_VALUE,
                                             SUPPORT_TRANSITION)
 from homeassistant.util.color import color_rgb_to_rgbw
 import homeassistant.helpers.config_validation as cv
@@ -35,27 +35,31 @@ CONF_TRANSITION = ATTR_TRANSITION
 CONF_LIGHT_TYPE_DIMMER = 'dimmer'
 CONF_LIGHT_TYPE_RGB = 'rgb'
 CONF_LIGHT_TYPE_RGBW = 'rgbw'
+CONF_LIGHT_TYPE_RGBW_AUTO = 'rgbw_auto'
 CONF_LIGHT_TYPE_SWITCH = 'switch'
-CONF_LIGHT_TYPES = [CONF_LIGHT_TYPE_DIMMER, CONF_LIGHT_TYPE_RGB, CONF_LIGHT_TYPE_RGBW,
-                    CONF_LIGHT_TYPE_SWITCH]
+CONF_LIGHT_TYPES = [CONF_LIGHT_TYPE_DIMMER, CONF_LIGHT_TYPE_RGB, CONF_LIGHT_TYPE_RGBW_AUTO,
+                    CONF_LIGHT_TYPE_SWITCH, CONF_LIGHT_TYPE_RGBW]
 
 # Number of channels used by each light type
 CHANNEL_COUNT_MAP, FEATURE_MAP, COLOR_MAP = {}, {}, {}
 CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_DIMMER] = 1
 CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_RGB] = 3
 CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_RGBW] = 4
+CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_RGBW_AUTO] = 4
 CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_SWITCH] = 1
 
 # Features supported by light types
 FEATURE_MAP[CONF_LIGHT_TYPE_DIMMER] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION)
 FEATURE_MAP[CONF_LIGHT_TYPE_RGB] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION | SUPPORT_RGB_COLOR)
-FEATURE_MAP[CONF_LIGHT_TYPE_RGBW] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION | SUPPORT_RGB_COLOR)
+FEATURE_MAP[CONF_LIGHT_TYPE_RGBW] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION | SUPPORT_RGB_COLOR | SUPPORT_WHITE_VALUE)
+FEATURE_MAP[CONF_LIGHT_TYPE_RGBW_AUTO] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION | SUPPORT_RGB_COLOR)
 FEATURE_MAP[CONF_LIGHT_TYPE_SWITCH] = ()
 
 # Default color for each light type if not specified in configuration
 COLOR_MAP[CONF_LIGHT_TYPE_DIMMER] = None
 COLOR_MAP[CONF_LIGHT_TYPE_RGB] = [255, 255, 255]
 COLOR_MAP[CONF_LIGHT_TYPE_RGBW] = [255, 255, 255]
+COLOR_MAP[CONF_LIGHT_TYPE_RGBW_AUTO] = [255, 255, 255]
 COLOR_MAP[CONF_LIGHT_TYPE_SWITCH] = None
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
@@ -108,6 +112,7 @@ class ArtnetLight(Light):
         self._fade_time = light.get(CONF_TRANSITION, 0) 
         self._brightness = light.get(CONF_DEFAULT_LEVEL, controller.default_level)
         self._rgb = light.get(CONF_DEFAULT_COLOR, COLOR_MAP.get(self._type))
+        self._white_value = light.get(CONF_DEFAULT_LEVEL, controller.default_level)
 
         # Apply maps and calculations
         self._channel_count = CHANNEL_COUNT_MAP.get(self._type, 1)
@@ -118,7 +123,7 @@ class ArtnetLight(Light):
         if self._rgb:
             self._brightness = max(self._rgb)
             self._rgb = scale_rgb_to_brightness(self._rgb, self._brightness)
-
+        
         logging.debug("Setting default values for '%s' to %s", self._name, repr(self.dmx_values))
         self._controller.set_channels(self._channels, self.dmx_values, send_immediately=False)
 
@@ -153,6 +158,14 @@ class ArtnetLight(Light):
         return self._rgb
 
     @property
+    def white_value(self):
+        """Return the white value of this light between 0..255."""
+        if self._type == CONF_LIGHT_TYPE_RGBW:
+            return self._white_value
+        else:
+            return None
+
+    @property
     def dmx_values(self):
         # Select which values to send over DMX
 
@@ -160,6 +173,10 @@ class ArtnetLight(Light):
             # Scale the RGB colour value to the selected brightness
             return scale_rgb_to_brightness(self._rgb, self._brightness)
         elif self._type == CONF_LIGHT_TYPE_RGBW:
+            rgbw = scale_rgb_to_brightness(self._rgb, self._brightness)
+            rgbw.append(self._white_value)
+            return rgbw
+        elif self._type == CONF_LIGHT_TYPE_RGBW_AUTO:
             # Split the white component out from the scaled RGB values
             scaled_rgb = scale_rgb_to_brightness(self._rgb, self._brightness)
             return color_rgb_to_rgbw(*scaled_rgb)
@@ -197,6 +214,10 @@ class ArtnetLight(Light):
 
         if ATTR_RGB_COLOR in kwargs:
             self._rgb = kwargs[ATTR_RGB_COLOR]
+            #self._white_value = color_rgb_to_rgbw(*self._rgb)[3]
+
+        if ATTR_WHITE_VALUE in kwargs:
+            self._white_value = kwargs[ATTR_WHITE_VALUE]
 
         logging.debug("Setting light '%s' to values %s with transition time %i", self._name, repr(self.dmx_values), transition)
         yield from self._controller.set_channels(self._channels, self.dmx_values, transition=transition)
