@@ -73,6 +73,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
             vol.Required(CONF_NAME): cv.string,
             vol.Optional(CONF_TYPE): vol.In(CONF_LIGHT_TYPES),
             vol.Optional(CONF_DEFAULT_LEVEL): cv.byte,
+            vol.Optional(ATTR_WHITE_VALUE): cv.byte,
             vol.Optional(CONF_DEFAULT_COLOR): vol.All(
                 vol.ExactSequence((cv.byte, cv.byte, cv.byte)), vol.Coerce(tuple)),
             vol.Optional(CONF_TRANSITION): vol.All(vol.Coerce(int), vol.Range(min=0, max=60)),
@@ -112,7 +113,7 @@ class ArtnetLight(Light):
         self._fade_time = light.get(CONF_TRANSITION, 0) 
         self._brightness = light.get(CONF_DEFAULT_LEVEL, controller.default_level)
         self._rgb = light.get(CONF_DEFAULT_COLOR, COLOR_MAP.get(self._type))
-        self._white_value = light.get(CONF_DEFAULT_LEVEL, controller.default_level)
+        self._white_value = light.get(ATTR_WHITE_VALUE, 0)
 
         # Apply maps and calculations
         self._channel_count = CHANNEL_COUNT_MAP.get(self._type, 1)
@@ -127,7 +128,7 @@ class ArtnetLight(Light):
         logging.debug("Setting default values for '%s' to %s", self._name, repr(self.dmx_values))
         self._controller.set_channels(self._channels, self.dmx_values, send_immediately=False)
 
-        self._state = self._brightness >= 0
+        self._state = self._brightness >= 0 or self._white_value >= 0
   
     @property
     def name(self):
@@ -174,7 +175,7 @@ class ArtnetLight(Light):
             return scale_rgb_to_brightness(self._rgb, self._brightness)
         elif self._type == CONF_LIGHT_TYPE_RGBW:
             rgbw = scale_rgb_to_brightness(self._rgb, self._brightness)
-            rgbw.append(self._white_value)
+            rgbw.append(round(self._white_value * (self._brightness / 255)))
             return rgbw
         elif self._type == CONF_LIGHT_TYPE_RGBW_AUTO:
             # Split the white component out from the scaled RGB values
