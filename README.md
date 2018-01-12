@@ -49,14 +49,16 @@ Configuration variables:
 Device configuration variables:
 - **channel** (*Required*): The base DMX channel for the light (1-512)
 - **name** (*Required*): Friendly name for the light (will also be used for the entity_id)
-- **type** (*Required*): 'dimmer' (single channel), 'rgb' (three channel), 'rgbw' (four channel) or 'switch' (single channel with no brightness adjustments)
+- **type** (*Required*): 'dimmer' (single channel), 'rgb' (three channel rgb), 'rgbw' (three channel rgb + white), 'rgbw_auto' (three channel rgb + automatically calculated white value) or 'switch' (single channel with no brightness adjustments)
 - **default_level** (*Optional*): Default level to give to Home Assistant for the light (0-255)
 - **default_rgb** (*Optional*): Default colour to give to Home Assistant for the light in the format [R,G,B]
+- **white_level** (*Optional*): Default white level for RGBW lights (0-255)
 - **transition** (*Optional*): Set a default fade time for transitions. Transition times specified through the turn_on / turn_off service calls in Home Assistant will override this behaviour. 
 
 Supported features:
 - Transition time can be specified through services to fade to a colour (for RGB fixtures) or value. This currently is set to run at 40 frames per second. Multiple fades at the same time seem to be possible.
 - Brightness: Once a channel is turned on brightness can be controlled through the Home Assistant interface.
+- White level: For RGB lights with a separate white LED this controls the white LED. This can be automatically controlled using the colour wheel on 'rgbw_auto' lights, or manually with 'rgbw'
 
 Limitations:
 - Currently hard-coded to only address a single DMX universe
