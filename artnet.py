@@ -29,6 +29,7 @@ CONF_CHANNEL = 'channel'
 CONF_DMX_CHANNELS = 'dmx_channels'
 CONF_DEFAULT_COLOR = 'default_rgb'
 CONF_DEFAULT_LEVEL = 'default_level'
+CONF_SEND_LEVELS_ON_STARTUP = 'send_levels_on_startup'
 CONF_TRANSITION = ATTR_TRANSITION
 
 # Light types
@@ -64,9 +65,8 @@ COLOR_MAP[CONF_LIGHT_TYPE_SWITCH] = None
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_HOST): cv.string,
-    vol.Required(CONF_DMX_CHANNELS): vol.All(vol.Coerce(int), vol.Range(min=1, max=512)),
-    vol.Optional(CONF_PORT): cv.port,
-    vol.Required(CONF_DEFAULT_LEVEL): cv.byte,
+    vol.Required(CONF_DMX_CHANNELS, default=512): vol.All(vol.Coerce(int), vol.Range(min=1, max=512)),
+    vol.Required(CONF_DEFAULT_LEVEL, default=0): cv.byte,
     vol.Required(CONF_DEVICES): vol.All(cv.ensure_list, [
         {
             vol.Required(CONF_CHANNEL): vol.All(vol.Coerce(int), vol.Range(min=1, max=512)),
@@ -76,25 +76,28 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
             vol.Optional(ATTR_WHITE_VALUE): cv.byte,
             vol.Optional(CONF_DEFAULT_COLOR): vol.All(
                 vol.ExactSequence((cv.byte, cv.byte, cv.byte)), vol.Coerce(tuple)),
-            vol.Optional(CONF_TRANSITION): vol.All(vol.Coerce(int), vol.Range(min=0, max=60)),
+            vol.Optional(CONF_TRANSITION, default=0): vol.All(vol.Coerce(int), vol.Range(min=0, max=60)),
 
         }
     ]),
+    vol.Optional(CONF_PORT, default=6454): cv.port,
+    vol.Optional(CONF_SEND_LEVELS_ON_STARTUP, default=True): cv.boolean,
 })
 
 @asyncio.coroutine
 def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
     host = config.get(CONF_HOST)
-    port = config.get(CONF_PORT, 6454)
+    port = config.get(CONF_PORT)
+    send_levels_on_startup = config.get(CONF_SEND_LEVELS_ON_STARTUP)
 
     # Send the specified default level to pre-fill the channels with
-    overall_default_level = config.get(CONF_DEFAULT_LEVEL,0)
+    overall_default_level = config.get(CONF_DEFAULT_LEVEL)
 
     dmx = None
     if not dmx:
         dmx = DMXGateway(host, port, overall_default_level, config[CONF_DMX_CHANNELS])
 
-    lights = (ArtnetLight(light, dmx) for light in config[CONF_DEVICES])
+    lights = (ArtnetLight(light, dmx, send_levels_on_startup) for light in config[CONF_DEVICES])
     async_add_devices(lights)
 
     return True
@@ -102,7 +105,7 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
 class ArtnetLight(Light):
     """Representation of an Artnet Light."""
 
-    def __init__(self, light, controller):
+    def __init__(self, light, controller, send_immediately):
         """Initialize an artnet Light."""
         self._controller = controller
 
@@ -110,7 +113,7 @@ class ArtnetLight(Light):
         self._channel = light.get(CONF_CHANNEL)
         self._name = light.get(CONF_NAME)
         self._type = light.get(CONF_TYPE, CONF_LIGHT_TYPE_DIMMER) 
-        self._fade_time = light.get(CONF_TRANSITION, 0) 
+        self._fade_time = light.get(CONF_TRANSITION) 
         self._brightness = light.get(CONF_DEFAULT_LEVEL, controller.default_level)
         self._rgb = light.get(CONF_DEFAULT_COLOR, COLOR_MAP.get(self._type))
         self._white_value = light.get(ATTR_WHITE_VALUE, 0)
@@ -126,7 +129,9 @@ class ArtnetLight(Light):
             self._rgb = scale_rgb_to_brightness(self._rgb, self._brightness)
         
         logging.debug("Setting default values for '%s' to %s", self._name, repr(self.dmx_values))
-        self._controller.set_default_value(self._channels, self.dmx_values)
+
+        # Send default levels to the controller
+        self._controller.set_channels(self._channels, self.dmx_values, send_immediately)
 
         self._state = self._brightness >= 0 or self._white_value >= 0
   
@@ -221,7 +226,7 @@ class ArtnetLight(Light):
             self._white_value = kwargs[ATTR_WHITE_VALUE]
 
         logging.debug("Setting light '%s' to values %s with transition time %i", self._name, repr(self.dmx_values), transition)
-        yield from self._controller.set_channels(self._channels, self.dmx_values, transition=transition)
+        yield from self._controller.set_channels_async(self._channels, self.dmx_values, transition=transition)
 
         self.async_schedule_update_ha_state()
 
@@ -232,7 +237,7 @@ class ArtnetLight(Light):
         transition = kwargs.get(ATTR_TRANSITION, self._fade_time)
 
         logging.debug("Turning off '%s' with transition  %i", self._name, transition)
-        yield from self._controller.set_channels(self._channels, 0, transition=transition)
+        yield from self._controller.set_channels_async(self._channels, 0, transition=transition)
         self._state = False
         self.async_schedule_update_ha_state()
 
@@ -246,30 +251,22 @@ class DMXGateway(object):
     send values to the DMX gateway.
     """
 
-    def __init__(self, host, port=6454, default_level=0, number_of_channels=512):
+    def __init__(self, host, port, default_level, number_of_channels):
         """
         Initialise a bank of channels, with a default value specified by the caller.
         """
 
         self._host = host
         self._port = port
-
-        # Ensure number of channels is within the universe
-        if number_of_channels <= 512:
-            self._number_of_channels = number_of_channels
-        else:
-            self._number_of_channels = 512
+        self._number_of_channels = number_of_channels
+        self._default_level = default_level
 
         # Number of channels must be even
         if number_of_channels % 2 != 0:
             self._number_of_channels += 1
-
-        # Check the default value is 0-255
-        if 0 <= default_level <= 255:
-            self._default_level = default_level
             
         # Initialise the DMX channel array with the default values
-        self._channels = [default_level] * self._number_of_channels
+        self._channels = [self._default_level] * self._number_of_channels
 
         # Initialise socket
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # UDP
@@ -294,7 +291,7 @@ class DMXGateway(object):
         self._socket.sendto(packet, (self._host, self._port))
         logging.debug("Sending Art-Net frame")
 
-    def set_default_value(self, channels, value):
+    def set_channels(self, channels, value, send_immediately=True):
         # Single value for standard channels, RGB channels will have 3 or more
         value_arr = [value]
         if type(value) is tuple or type(value) is list:
@@ -304,10 +301,11 @@ class DMXGateway(object):
             default_value = value_arr[min(x, len(value_arr)-1)]
             self._channels[channel-1] = default_value
 
-        self.send()
+        if send_immediately:
+            self.send()
 
     @asyncio.coroutine
-    def set_channels(self, channels, value, transition=0, fps=40, send_immediately=True):
+    def set_channels_async(self, channels, value, transition=0, fps=40, send_immediately=True):
         original_values = self._channels[:]
         # Minimum of one frame for a snap transition
         number_of_frames = max(int(transition*fps),1)
@@ -334,22 +332,6 @@ class DMXGateway(object):
                 self.send()
             
             yield from asyncio.sleep(1./fps)
-
-    def set_channel(self, channel, value, send_immediately=True):
-        """
-        Set a single DMX channel to the specified value. If send_immediately is specified as
-        false, the changes will not be send to the gateway. This is useful to be able to cue
-        up several changes at once.
-        """
-        if 1 <= channel <= self._number_of_channels and 0 <= value <= 255:
-            logging.debug('Setting channel %i to %i with send immediately = %s', int(channel),
-                         int(value), send_immediately)
-            self._channels[int(channel)-1] = value
-            if send_immediately:
-                self.send()
-            return True
-        else:
-            return False
 
     def get_channel_level(self, channel):
         """
