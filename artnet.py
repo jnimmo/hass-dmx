@@ -126,7 +126,7 @@ class ArtnetLight(Light):
             self._rgb = scale_rgb_to_brightness(self._rgb, self._brightness)
         
         logging.debug("Setting default values for '%s' to %s", self._name, repr(self.dmx_values))
-        self._controller.set_channels(self._channels, self.dmx_values, send_immediately=False)
+        self._controller.set_default_value(self._channels, self.dmx_values)
 
         self._state = self._brightness >= 0 or self._white_value >= 0
   
@@ -293,6 +293,18 @@ class DMXGateway(object):
         packet.extend(self._channels)
         self._socket.sendto(packet, (self._host, self._port))
         logging.debug("Sending Art-Net frame")
+
+    def set_default_value(self, channels, value):
+        # Single value for standard channels, RGB channels will have 3 or more
+        value_arr = [value]
+        if type(value) is tuple or type(value) is list:
+            value_arr = value
+
+        for x, channel in enumerate(channels):
+            default_value = value_arr[min(x, len(value_arr)-1)]
+            self._channels[channel-1] = default_value
+
+        self.send()
 
     @asyncio.coroutine
     def set_channels(self, channels, value, transition=0, fps=40, send_immediately=True):
