@@ -5,6 +5,10 @@ The Art-Net integration for Home Assistant allows you to send DMX values to an [
 
 The component is a one way integration, and sends UDP packets to the Art-Net interface. This integration uses no external libraries and requires at least Python version 3.5.
 
+### Prerequisites
+
+You need at least hass >= 0.66 in order to use this component.
+
 ### Usage
 
 To use DMX in your installation:

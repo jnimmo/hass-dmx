@@ -12,13 +12,14 @@ import socket
 from struct import pack
 
 from homeassistant.const import (CONF_DEVICES, CONF_HOST, CONF_NAME, CONF_PORT, CONF_TYPE)
-from homeassistant.components.light import (ATTR_BRIGHTNESS, ATTR_ENTITY_ID, ATTR_RGB_COLOR,
+from homeassistant.components.light import (ATTR_BRIGHTNESS, ATTR_ENTITY_ID, ATTR_HS_COLOR,
                                             ATTR_TRANSITION, ATTR_WHITE_VALUE, Light,
                                             PLATFORM_SCHEMA, SUPPORT_BRIGHTNESS,
-                                            SUPPORT_RGB_COLOR, SUPPORT_WHITE_VALUE,
+                                            SUPPORT_COLOR, SUPPORT_WHITE_VALUE,
                                             SUPPORT_TRANSITION)
 from homeassistant.util.color import color_rgb_to_rgbw
 import homeassistant.helpers.config_validation as cv
+import homeassistant.util.color as color_util
 import voluptuous as vol
 
 _LOGGER = logging.getLogger(__name__)
@@ -51,9 +52,9 @@ CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_SWITCH] = 1
 
 # Features supported by light types
 FEATURE_MAP[CONF_LIGHT_TYPE_DIMMER] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION)
-FEATURE_MAP[CONF_LIGHT_TYPE_RGB] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION | SUPPORT_RGB_COLOR)
-FEATURE_MAP[CONF_LIGHT_TYPE_RGBW] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION | SUPPORT_RGB_COLOR | SUPPORT_WHITE_VALUE)
-FEATURE_MAP[CONF_LIGHT_TYPE_RGBW_AUTO] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION | SUPPORT_RGB_COLOR)
+FEATURE_MAP[CONF_LIGHT_TYPE_RGB] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION | SUPPORT_COLOR)
+FEATURE_MAP[CONF_LIGHT_TYPE_RGBW] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION | SUPPORT_COLOR | SUPPORT_WHITE_VALUE)
+FEATURE_MAP[CONF_LIGHT_TYPE_RGBW_AUTO] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION | SUPPORT_COLOR)
 FEATURE_MAP[CONF_LIGHT_TYPE_SWITCH] = ()
 
 # Default color for each light type if not specified in configuration
@@ -159,9 +160,12 @@ class ArtnetLight(Light):
         return self._state
     
     @property
-    def rgb_color(self):
-        """Return the RBG color value."""
-        return self._rgb
+    def hs_color(self):
+        """Return the HS color value."""
+        if self._rgb:
+            return color_util.color_RGB_to_hs(*self._rgb)
+        else:
+            return None
 
     @property
     def white_value(self):
@@ -218,8 +222,8 @@ class ArtnetLight(Light):
         if ATTR_BRIGHTNESS in kwargs:
             self._brightness = kwargs[ATTR_BRIGHTNESS]
 
-        if ATTR_RGB_COLOR in kwargs:
-            self._rgb = kwargs[ATTR_RGB_COLOR]
+        if ATTR_HS_COLOR in kwargs:
+            self._rgb = color_util.color_hs_to_RGB(*kwargs[ATTR_HS_COLOR])
             #self._white_value = color_rgb_to_rgbw(*self._rgb)[3]
 
         if ATTR_WHITE_VALUE in kwargs:
