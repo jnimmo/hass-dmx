@@ -87,7 +87,6 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Optional(CONF_SEND_LEVELS_ON_STARTUP, default=True): cv.boolean,
 })
 
-
 @asyncio.coroutine
 def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
     host = config.get(CONF_HOST)
@@ -105,7 +104,6 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
     async_add_devices(lights)
 
     return True
-
 
 class ArtnetLight(Light):
     """Representation of an Artnet Light."""
@@ -153,7 +151,7 @@ class ArtnetLight(Light):
     @property
     def device_state_attributes(self):
         data = {}
-        data['dmx_channel'] = self._channel
+        data['dmx_channels'] = self._channels
         data[CONF_TRANSITION] = self._fade_time
         data['dmx_values'] = self.dmx_values
         return data
@@ -302,14 +300,13 @@ class DMXGateway(object):
         """
         Send the current state of DMX values to the gateway via UDP packet.
         """
-        for i in range(0, 100000):
+        while True:
             # Copy the base packet then add the channel array
             packet = self._base_packet[:]
             packet.extend(self._channels)
             self._socket.sendto(packet, (self._host, self._port))
             # logging.debug("Sending Art-Net frame")
             time.sleep(1. / 40)
-
 
     def set_channels(self, channels, value, send_immediately=True):
         # Single value for standard channels, RGB channels will have 3 or more
