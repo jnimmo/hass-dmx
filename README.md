@@ -54,7 +54,7 @@ Configuration variables:
 Device configuration variables:
 - **channel** (*Required*): The base DMX channel for the light (1-512)
 - **name** (*Required*): Friendly name for the light (will also be used for the entity_id)
-- **type** (*Required*): 'dimmer' (single channel), 'rgb' (three channel rgb), 'rgbw' (three channel rgb + white), 'rgbw_auto' (three channel rgb + automatically calculated white value) or 'switch' (single channel with no brightness adjustments)
+- **type** (*Required*): 'dimmer' (single channel), 'rgb' (three channel rgb), 'rgbw' (three channel rgb + white), 'rgbw_auto' (three channel rgb + automatically calculated white value), 'drgb' (master-dimmer + three channel rgb), 'rgbwd' (three channel rgb + white + dimmer) or 'switch' (single channel with no brightness adjustments)
 - **default_level** (*Optional*): Default level to give to Home Assistant for the light (0-255)
 - **default_rgb** (*Optional*): Default colour to give to Home Assistant for the light in the format [R,G,B]
 - **white_level** (*Optional*): Default white level for RGBW lights (0-255)
