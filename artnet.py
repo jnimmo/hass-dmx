@@ -207,7 +207,6 @@ class ArtnetLight(Light):
             rgbwd.extend(self._rgb)
             rgbwd.append(self._white_value)
             rgbwd.append(self._brightness)
-            logging.critical("rgbwd: %s",rgbwd)
             return rgbwd
         else:
             return self._brightness
