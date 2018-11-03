@@ -42,8 +42,12 @@ CONF_LIGHT_TYPE_RGBW_AUTO = 'rgbw_auto'
 CONF_LIGHT_TYPE_DRGB = 'drgb'
 CONF_LIGHT_TYPE_RGBWD = 'rgbwd'
 CONF_LIGHT_TYPE_SWITCH = 'switch'
+
+CONF_LIGHT_TYPE_DA_CORNER = 'da_corner'
+
+
 CONF_LIGHT_TYPES = [CONF_LIGHT_TYPE_DIMMER, CONF_LIGHT_TYPE_RGB, CONF_LIGHT_TYPE_RGBW_AUTO,
-                    CONF_LIGHT_TYPE_SWITCH, CONF_LIGHT_TYPE_RGBW, CONF_LIGHT_TYPE_DRGB, CONF_LIGHT_TYPE_RGBWD]
+                    CONF_LIGHT_TYPE_SWITCH, CONF_LIGHT_TYPE_RGBW, CONF_LIGHT_TYPE_DRGB, CONF_LIGHT_TYPE_RGBWD, CONF_LIGHT_TYPE_DA_CORNER]
 
 # Number of channels used by each light type
 CHANNEL_COUNT_MAP, FEATURE_MAP, COLOR_MAP = {}, {}, {}
@@ -55,6 +59,8 @@ CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_DRGB] = 4
 CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_RGBWD] = 5
 CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_SWITCH] = 1
 
+CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_DA_CORNER] = 7
+
 # Features supported by light types
 FEATURE_MAP[CONF_LIGHT_TYPE_DIMMER] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION)
 FEATURE_MAP[CONF_LIGHT_TYPE_RGB] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION | SUPPORT_COLOR)
@@ -64,6 +70,8 @@ FEATURE_MAP[CONF_LIGHT_TYPE_DRGB] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION | S
 FEATURE_MAP[CONF_LIGHT_TYPE_RGBWD] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION | SUPPORT_COLOR | SUPPORT_WHITE_VALUE)
 FEATURE_MAP[CONF_LIGHT_TYPE_SWITCH] = ()
 
+FEATURE_MAP[CONF_LIGHT_TYPE_DA_CORNER] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION | SUPPORT_COLOR)
+
 # Default color for each light type if not specified in configuration
 COLOR_MAP[CONF_LIGHT_TYPE_DIMMER] = None
 COLOR_MAP[CONF_LIGHT_TYPE_RGB] = [255, 255, 255]
@@ -72,6 +80,8 @@ COLOR_MAP[CONF_LIGHT_TYPE_RGBW_AUTO] = [255, 255, 255]
 COLOR_MAP[CONF_LIGHT_TYPE_DRGB] = [255, 255, 255]
 COLOR_MAP[CONF_LIGHT_TYPE_RGBWD] = [255, 255, 255] 
 COLOR_MAP[CONF_LIGHT_TYPE_SWITCH] = None
+
+COLOR_MAP[CONF_LIGHT_TYPE_DA_CORNER] = [255, 255, 255] 
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_HOST): cv.string,
@@ -211,6 +221,14 @@ class ArtnetLight(Light):
             rgbwd.append(self._white_value)
             rgbwd.append(self._brightness)
             return rgbwd
+        elif self._type == CONF_LIGHT_TYPE_DA_CORNER:
+            da_corner = list()
+            da_corner.extend(self._rgb) # RGB
+            da_corner.append(0) # Color Macros
+            da_corner.append(0) # Strobe Speed
+            da_corner.append(0) # Programs
+            da_corner.append(self._brightness) # Strobe Speed
+            return da_corner
         else:
             return self._brightness
 
