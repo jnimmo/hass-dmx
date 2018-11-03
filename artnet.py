@@ -32,6 +32,7 @@ CONF_DEFAULT_COLOR = 'default_rgb'
 CONF_DEFAULT_LEVEL = 'default_level'
 CONF_SEND_LEVELS_ON_STARTUP = 'send_levels_on_startup'
 CONF_TRANSITION = ATTR_TRANSITION
+CONF_UNIVERSE = "universe"
 
 # Light types
 CONF_LIGHT_TYPE_DIMMER = 'dimmer'
@@ -74,6 +75,7 @@ COLOR_MAP[CONF_LIGHT_TYPE_SWITCH] = None
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_HOST): cv.string,
+    vol.Required(CONF_UNIVERSE): cv.byte,
     vol.Required(CONF_DMX_CHANNELS, default=512): vol.All(vol.Coerce(int), vol.Range(min=1, max=512)),
     vol.Required(CONF_DEFAULT_LEVEL, default=0): cv.byte,
     vol.Required(CONF_DEVICES): vol.All(cv.ensure_list, [
@@ -96,6 +98,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
 @asyncio.coroutine
 def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
     host = config.get(CONF_HOST)
+    universe = config.get(CONF_UNIVERSE)
     port = config.get(CONF_PORT)
     send_levels_on_startup = config.get(CONF_SEND_LEVELS_ON_STARTUP)
 
@@ -104,7 +107,7 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
 
     dmx = None
     if not dmx:
-        dmx = DMXGateway(host, port, overall_default_level, config[CONF_DMX_CHANNELS])
+        dmx = DMXGateway(host, universe, port, overall_default_level, config[CONF_DMX_CHANNELS])
 
     lights = (ArtnetLight(light, dmx, send_levels_on_startup) for light in config[CONF_DEVICES])
     async_add_devices(lights)
@@ -273,12 +276,13 @@ class DMXGateway(object):
     send values to the DMX gateway.
     """
 
-    def __init__(self, host, port, default_level, number_of_channels):
+    def __init__(self, host, universe, port, default_level, number_of_channels):
         """
         Initialise a bank of channels, with a default value specified by the caller.
         """
 
         self._host = host
+        self._universe = universe
         self._port = port
         self._number_of_channels = number_of_channels
         self._default_level = default_level
@@ -299,7 +303,7 @@ class DMXGateway(object):
         packet.extend([0x00, 0x50]) # Opcode ArtDMX 0x5000 (Little endian)
         packet.extend([0x00, 0x0e]) # Protocol version 14
         packet.extend([0x00, 0x00]) # Sequence, Physical
-        packet.extend([0x00, 0x00]) # Universe
+        packet.extend([self._universe, 0x00]) # Universe
         packet.extend(pack('>h', self._number_of_channels)) # Pack the number of channels Big endian
         self._base_packet = packet
 
