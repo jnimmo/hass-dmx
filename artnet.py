@@ -1,7 +1,7 @@
 """
 Home Assistant support for Art-Net/DMX lights over IP
 
-Date:     2018-01-10
+Date:     2018-08-14
 Homepage: https://github.com/jnimmo/hass-artnet
 Author:   James Nimmo
 
@@ -10,6 +10,8 @@ import asyncio
 import logging
 import socket
 from struct import pack
+from threading import Thread
+import time
 
 from homeassistant.const import (CONF_DEVICES, CONF_HOST, CONF_NAME, CONF_PORT, CONF_TYPE)
 from homeassistant.components.light import (ATTR_BRIGHTNESS, ATTR_ENTITY_ID, ATTR_HS_COLOR,
@@ -125,8 +127,8 @@ class ArtnetLight(Light):
         # Fixture configuration
         self._channel = light.get(CONF_CHANNEL)
         self._name = light.get(CONF_NAME)
-        self._type = light.get(CONF_TYPE, CONF_LIGHT_TYPE_DIMMER) 
-        self._fade_time = light.get(CONF_TRANSITION) 
+        self._type = light.get(CONF_TYPE, CONF_LIGHT_TYPE_DIMMER)
+        self._fade_time = light.get(CONF_TRANSITION)
         self._brightness = light.get(CONF_DEFAULT_LEVEL, controller.default_level)
         self._rgb = light.get(CONF_DEFAULT_COLOR, COLOR_MAP.get(self._type))
         self._white_value = light.get(ATTR_WHITE_VALUE, 0)
@@ -140,14 +142,14 @@ class ArtnetLight(Light):
         if self._rgb:
             self._brightness = max(self._rgb)
             self._rgb = scale_rgb_to_brightness(self._rgb, self._brightness)
-        
+
         logging.debug("Setting default values for '%s' to %s", self._name, repr(self.dmx_values))
 
         # Send default levels to the controller
         self._controller.set_channels(self._channels, self.dmx_values, send_immediately)
 
         self._state = self._brightness >= 0 or self._white_value >= 0
-  
+
     @property
     def name(self):
         """Return the display name of this light."""
@@ -170,7 +172,7 @@ class ArtnetLight(Light):
     def is_on(self):
         """Return true if light is on."""
         return self._state
-    
+
     @property
     def hs_color(self):
         """Return the HS color value."""
@@ -240,10 +242,10 @@ class ArtnetLight(Light):
     @asyncio.coroutine
     def async_turn_on(self, **kwargs):
         """Instruct the light to turn on.
-        Move to using one method on the DMX class to set/fade either a single channel or group of channels 
+        Move to using one method on the DMX class to set/fade either a single channel or group of channels
         """
         self._state = True
-        transition =  kwargs.get(ATTR_TRANSITION, self._fade_time)
+        transition = kwargs.get(ATTR_TRANSITION, self._fade_time)
 
         # Update state from service call
         if ATTR_BRIGHTNESS in kwargs:
@@ -251,13 +253,15 @@ class ArtnetLight(Light):
 
         if ATTR_HS_COLOR in kwargs:
             self._rgb = color_util.color_hs_to_RGB(*kwargs[ATTR_HS_COLOR])
-            #self._white_value = color_rgb_to_rgbw(*self._rgb)[3]
+            # self._white_value = color_rgb_to_rgbw(*self._rgb)[3]
 
         if ATTR_WHITE_VALUE in kwargs:
             self._white_value = kwargs[ATTR_WHITE_VALUE]
 
-        logging.debug("Setting light '%s' to values %s with transition time %i", self._name, repr(self.dmx_values), transition)
-        yield from self._controller.set_channels_async(self._channels, self.dmx_values, transition=transition)
+        logging.debug("Setting light '%s' to values %s with transition time %i", self._name, repr(self.dmx_values),
+                      transition)
+        asyncio.ensure_future(
+            self._controller.set_channels_async(self._channels, self.dmx_values, transition=transition))
 
         self.async_schedule_update_ha_state()
 
@@ -268,13 +272,14 @@ class ArtnetLight(Light):
         transition = kwargs.get(ATTR_TRANSITION, self._fade_time)
 
         logging.debug("Turning off '%s' with transition  %i", self._name, transition)
-        yield from self._controller.set_channels_async(self._channels, 0, transition=transition)
+        asyncio.ensure_future(self._controller.set_channels_async(self._channels, 0, transition=transition))
         self._state = False
         self.async_schedule_update_ha_state()
 
     def update(self):
         """Fetch update state."""
         # Nothing to return
+
 
 class DMXGateway(object):
     """
@@ -295,32 +300,40 @@ class DMXGateway(object):
         # Number of channels must be even
         if number_of_channels % 2 != 0:
             self._number_of_channels += 1
-            
+
         # Initialise the DMX channel array with the default values
         self._channels = [self._default_level] * self._number_of_channels
 
         # Initialise socket
-        self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # UDP
+        self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP
 
         packet = bytearray()
         packet.extend(map(ord, "Art-Net"))
-        packet.append(0x00) # Null terminate Art-Net
-        packet.extend([0x00, 0x50]) # Opcode ArtDMX 0x5000 (Little endian)
-        packet.extend([0x00, 0x0e]) # Protocol version 14
-        packet.extend([0x00, 0x00]) # Sequence, Physical
-        packet.extend([0x00, 0x00]) # Universe
-        packet.extend(pack('>h', self._number_of_channels)) # Pack the number of channels Big endian
+        packet.append(0x00)  # Null terminate Art-Net
+        packet.extend([0x00, 0x50])  # Opcode ArtDMX 0x5000 (Little endian)
+        packet.extend([0x00, 0x0e])  # Protocol version 14
+        packet.extend([0x00, 0x00])  # Sequence, Physical
+        packet.extend([0x00, 0x00])  # Universe
+        packet.extend(pack('>h', self._number_of_channels))  # Pack the number of channels Big endian
         self._base_packet = packet
+
+        # start sending ARTNET
+        threa = Thread(target=self.send)
+
+        threa.start()
+        self.stopThread = False
 
     def send(self):
         """
         Send the current state of DMX values to the gateway via UDP packet.
         """
-        # Copy the base packet then add the channel array
-        packet = self._base_packet[:]
-        packet.extend(self._channels)
-        self._socket.sendto(packet, (self._host, self._port))
-        logging.debug("Sending Art-Net frame")
+        while True:
+            # Copy the base packet then add the channel array
+            packet = self._base_packet[:]
+            packet.extend(self._channels)
+            self._socket.sendto(packet, (self._host, self._port))
+            # logging.debug("Sending Art-Net frame")
+            time.sleep(1. / 40)
 
     def set_channels(self, channels, value, send_immediately=True):
         # Single value for standard channels, RGB channels will have 3 or more
@@ -329,64 +342,69 @@ class DMXGateway(object):
             value_arr = value
 
         for x, channel in enumerate(channels):
-            default_value = value_arr[min(x, len(value_arr)-1)]
-            self._channels[channel-1] = default_value
+            default_value = value_arr[min(x, len(value_arr) - 1)]
+            self._channels[channel - 1] = default_value
 
-        if send_immediately:
-            self.send()
+            # if send_immediately:
+            # self.send()
+
 
     @asyncio.coroutine
     def set_channels_async(self, channels, value, transition=0, fps=40, send_immediately=True):
         original_values = self._channels[:]
         # Minimum of one frame for a snap transition
-        number_of_frames = max(int(transition*fps),1)
+        number_of_frames = max(int(transition * fps), 1)
 
         # Single value for standard channels, RGB channels will have 3 or more
         value_arr = [value]
         if type(value) is tuple or type(value) is list:
             value_arr = value
 
-        for i in range(1, number_of_frames+1):
+        for i in range(1, number_of_frames + 1):
             values_changed = False
 
             for x, channel in enumerate(channels):
-                target_value = value_arr[min(x, len(value_arr)-1)]
-                increment = (target_value - original_values[channel-1])/(number_of_frames)
+                target_value = value_arr[min(x, len(value_arr) - 1)]
+                increment = (target_value - original_values[channel - 1]) / (number_of_frames)
 
-                next_value = int(round(original_values[channel-1] + (increment * i)))
+                next_value = int(round(original_values[channel - 1] + (increment * i)))
 
-                if self._channels[channel-1] != next_value:
-                    self._channels[channel-1] = next_value
+                if self._channels[channel - 1] != next_value:
+                    self._channels[channel - 1] = next_value
                     values_changed = True
 
-            if values_changed and send_immediately:
-                self.send()
-            
-            yield from asyncio.sleep(1./fps)
+                    # if values_changed and send_immediately:
+                    # self.send()
+
+            yield from asyncio.sleep(1. / fps)
+
 
     def get_channel_level(self, channel):
         """
         Return the current value we have for the specified channel.
         """
-        return self._channels[int(channel)-1]
+        return self._channels[int(channel) - 1]
+
 
     def set_channel_rgb(self, channel, values, send_immediately=True):
         for i in range(0, len(values)):
-            logging.debug('Setting channel %i to %i with send immediately = %s', channel+i, values[i], send_immediately)
-            if (channel+i <= self._number_of_channels) and (0 <= values[i] <= 255):
-                self._channels[channel-1+i] = values[i]
+            logging.debug('Setting channel %i to %i with send immediately = %s', channel + i, values[i], send_immediately)
+            if (channel + i <= self._number_of_channels) and (0 <= values[i] <= 255):
+                self._channels[channel - 1 + i] = values[i]
 
-        if send_immediately is True:
-            self.send()
+        # if send_immediately is True:
+        #    self.send()
         return True
+
 
     @property
     def default_level(self):
         return self._default_level
 
-def scale_rgb_to_brightness(rgb, brightness):
-    brightness_scale = (brightness / 255)
-    scaled_rgb = [round(rgb[0] * brightness_scale),
-                  round(rgb[1] * brightness_scale),
-                  round(rgb[2] * brightness_scale)]
-    return scaled_rgb
+
+    def scale_rgb_to_brightness(rgb, brightness):
+        brightness_scale = (brightness / 255)
+        scaled_rgb = [round(rgb[0] * brightness_scale),
+                      round(rgb[1] * brightness_scale),
+                      round(rgb[2] * brightness_scale)]
+        return scaled_rgb
