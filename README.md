@@ -51,7 +51,7 @@ Configuration variables:
 - **dmx_channels** (*Required*): The number of DMX channels to send a value for (even number between 2 & 512)
 - **default_level** (*Required*): Default level to assume the lights have been set to - in most cases 0 would make sense. Note Home Assistant will not send these values to the gateway until an explicit change is made.
 - **send_levels_on_startup** (*Optional*): Defaults to True if not specified. Setting this to False means Home Assistant will not send any DMX frames until a change is made.
-- **universe** (*Required*): Artnet Universe
+- **universe** (*Optional*): Artnet Universe. Defaults to 1 if not specified.
 
 Device configuration variables:
 - **channel** (*Required*): The base DMX channel for the light (1-512)
