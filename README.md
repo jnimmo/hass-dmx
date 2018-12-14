@@ -22,6 +22,7 @@ light:
     port: 6454
     dmx_channels: 512 
     default_level: 0
+    universe: 1
     devices:
       - channel: 1
         name: House lights
@@ -50,6 +51,7 @@ Configuration variables:
 - **dmx_channels** (*Required*): The number of DMX channels to send a value for (even number between 2 & 512)
 - **default_level** (*Required*): Default level to assume the lights have been set to - in most cases 0 would make sense. Note Home Assistant will not send these values to the gateway until an explicit change is made.
 - **send_levels_on_startup** (*Optional*): Defaults to True if not specified. Setting this to False means Home Assistant will not send any DMX frames until a change is made.
+- **universe** (*Optional*): Artnet Universe. Defaults to 1 if not specified.
 
 Device configuration variables:
 - **channel** (*Required*): The base DMX channel for the light (1-512)
@@ -73,7 +75,6 @@ Supported features:
 - White level: For RGB lights with a separate white LED this controls the white LED. This can be automatically controlled using the colour wheel on 'rgbw_auto' lights, or manually with 'rgbw'
 
 Limitations:
-- Currently hard-coded to only address a single DMX universe
 - DMX frames must send values for all channels in a universe. If you have other channels which are controlled by a different device or lighting desk, set Home Assistant to default to 0 values; and set your Art-Net device to merge on highest value rather than most recent update. This means channels could be controlled from either the desk or Home Assistant.
 
 ### Support for other hardware
