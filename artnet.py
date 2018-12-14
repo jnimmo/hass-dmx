@@ -75,7 +75,7 @@ COLOR_MAP[CONF_LIGHT_TYPE_SWITCH] = None
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_HOST): cv.string,
-    vol.Required(CONF_UNIVERSE): cv.byte,
+    vol.Optional(CONF_UNIVERSE, default=1): cv.byte,
     vol.Required(CONF_DMX_CHANNELS, default=512): vol.All(vol.Coerce(int), vol.Range(min=1, max=512)),
     vol.Required(CONF_DEFAULT_LEVEL, default=0): cv.byte,
     vol.Required(CONF_DEVICES): vol.All(cv.ensure_list, [
