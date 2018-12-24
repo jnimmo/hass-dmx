@@ -1,9 +1,9 @@
-# hass-artnet
-Home Assistant DMX Light Platform (Art-Net)
+# hass-dmx
+Home Assistant DMX over IP Light Platform
 
-The Art-Net integration for Home Assistant allows you to send DMX values to an [Art-Net](http://www.art-net.org.uk) capable DMX interface.
+The DMX integration for Home Assistant allows you to send DMX values to an [Art-Net](http://www.art-net.org.uk) capable DMX interface.
 
-The component is a one way integration, and sends UDP packets to the Art-Net interface. This integration uses no external libraries and requires at least Python version 3.5.
+The component is a one way integration, and sends UDP packets to the DMX interface. This integration uses no external libraries and requires at least Python version 3.5.
 
 ### Prerequisites
 
@@ -12,17 +12,17 @@ You need at least hass >= 0.66 in order to use this component.
 ### Usage
 
 To use DMX in your installation:
-1. Download the [artnet.py](https://github.com/jnimmo/hass-artnet/raw/master/artnet.py) file and save into the *'custom_components/light'* directory. (Create a *'custom_components'* folder in the location of your configuration.yaml file, and create a subdirectory *'light'* to store this platform)
+1. Download the [dmx.py](https://github.com/jnimmo/hass-artnet/raw/master/dmx.py) file and save into the *'custom_components/light'* directory. (Create a *'custom_components'* folder in the location of your configuration.yaml file, and create a subdirectory *'light'* to store this platform)
 2. Add the following lines to your `configuration.yaml` file:
 
 ```yaml
 light:
-  - platform: artnet
+  - platform: dmx
     host: <IP Address>
     port: 6454
     dmx_channels: 512 
     default_level: 0
-    universe: 1
+    universe: 0
     devices:
       - channel: 1
         name: House lights
@@ -51,7 +51,7 @@ Configuration variables:
 - **dmx_channels** (*Required*): The number of DMX channels to send a value for (even number between 2 & 512)
 - **default_level** (*Required*): Default level to assume the lights have been set to - in most cases 0 would make sense. Note Home Assistant will not send these values to the gateway until an explicit change is made.
 - **send_levels_on_startup** (*Optional*): Defaults to True if not specified. Setting this to False means Home Assistant will not send any DMX frames until a change is made.
-- **universe** (*Optional*): Artnet Universe. Defaults to 1 if not specified.
+- **universe** (*Optional*): Artnet Universe. Defaults to 0 if not specified.
 
 Device configuration variables:
 - **channel** (*Required*): The base DMX channel for the light (1-512)
