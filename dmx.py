@@ -1,7 +1,7 @@
 """
 Home Assistant support for DMX lights over IP.
 
-Date:     2018-12-24
+Date:     2018-01-10
 Homepage: https://github.com/jnimmo/hass-dmx
 Author:   James Nimmo
 
@@ -12,7 +12,7 @@ import socket
 from struct import pack
 
 from homeassistant.const import (CONF_DEVICES, CONF_HOST, CONF_NAME, CONF_PORT,
-                                 CONF_TYPE)
+                                 CONF_TYPE, STATE_ON, STATE_OFF)
 from homeassistant.components.light import (ATTR_BRIGHTNESS,
                                             ATTR_HS_COLOR,
                                             ATTR_TRANSITION,
@@ -83,7 +83,7 @@ FEATURE_MAP[CONF_LIGHT_TYPE_DRGBW] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION |
                                       SUPPORT_COLOR | SUPPORT_WHITE_VALUE)
 FEATURE_MAP[CONF_LIGHT_TYPE_RGBWD] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION |
                                       SUPPORT_COLOR | SUPPORT_WHITE_VALUE)
-FEATURE_MAP[CONF_LIGHT_TYPE_SWITCH] = ()
+FEATURE_MAP[CONF_LIGHT_TYPE_SWITCH] = 0
 
 # Default color for each light type if not specified in configuration
 COLOR_MAP[CONF_LIGHT_TYPE_DIMMER] = None
@@ -176,14 +176,14 @@ class DmxLight(Light):
             self._brightness = max(self._rgb)
             self._rgb = scale_rgb_to_brightness(self._rgb, self._brightness)
 
-        logging.debug("Setting default values for '%s' to %s", self._name,
-                      repr(self.dmx_values))
+        if self._brightness >= 0 or self._white_value >= 0:
+            self._state = STATE_ON
+        else:
+            self._state = STATE_OFF
 
         # Send default levels to the controller
         self._controller.set_channels(self._channels, self.dmx_values,
                                       send_immediately)
-
-        self._state = self._brightness >= 0 or self._white_value >= 0
 
     @property
     def name(self):
@@ -206,7 +206,7 @@ class DmxLight(Light):
     @property
     def is_on(self):
         """Return true if light is on."""
-        return self._state
+        return self._state == STATE_ON
 
     @property
     def hs_color(self):
@@ -256,6 +256,11 @@ class DmxLight(Light):
             rgbwd.append(self._white_value)
             rgbwd.append(self._brightness)
             return rgbwd
+        elif self._type == CONF_LIGHT_TYPE_SWITCH:
+            if self.is_on:
+                return 255
+            else:
+                return 0
         else:
             return self._brightness
 
@@ -283,7 +288,7 @@ class DmxLight(Light):
         Move to using one method on the DMX class to set/fade either a single
         channel or group of channels
         """
-        self._state = True
+        self._state = STATE_ON
         transition = kwargs.get(ATTR_TRANSITION, self._fade_time)
 
         # Update state from service call
@@ -317,7 +322,7 @@ class DmxLight(Light):
                       transition)
         asyncio.ensure_future(self._controller.set_channels_async(
             self._channels, 0, transition=transition))
-        self._state = False
+        self._state = STATE_OFF
         self.async_schedule_update_ha_state()
 
     def update(self):
@@ -408,8 +413,8 @@ class DMXGateway(object):
                 next_value = int(round(
                     original_values[channel - 1] + (increment * i)))
 
-                if self._channels[channel-1] != next_value:
-                    self._channels[channel-1] = next_value
+                if self._channels[channel - 1] != next_value:
+                    self._channels[channel - 1] = next_value
                     values_changed = True
 
             if values_changed and send_immediately:
@@ -422,19 +427,6 @@ class DMXGateway(object):
         Return the current value we have for the specified channel.
         """
         return self._channels[int(channel)-1]
-
-    def set_channel_rgb(self, channel, values, send_immediately=True):
-        for i in range(0, len(values)):
-            logging.debug(
-                'Setting channel %i to %i with send immediately = %s',
-                channel + i, values[i], send_immediately)
-            if (channel + i <= self._number_of_channels) and (0 <= values[i]
-                                                              <= 255):
-                self._channels[channel - 1 + i] = values[i]
-
-        if send_immediately is True:
-            self.send()
-        return True
 
     @property
     def default_level(self):
