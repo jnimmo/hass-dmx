@@ -54,7 +54,7 @@ Configuration variables:
 - **universe** (*Optional*): Artnet Universe. Defaults to 0 if not specified.
 
 Device configuration variables:
-- **channel** (*Required*): The base DMX channel for the light (1-512)
+- **channel** (*Required*): The DMX channel for the light (1-512)
 - **name** (*Required*): Friendly name for the light (will also be used for the entity_id)
 - **type** (*Required*): 
   - **'dimmer'** (single channel), 
