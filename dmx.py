@@ -43,6 +43,7 @@ CONF_UNIVERSE = "universe"
 # Light types
 CONF_LIGHT_TYPE_DIMMER = 'dimmer'
 CONF_LIGHT_TYPE_RGB = 'rgb'
+CONF_LIGHT_TYPE_RGBA = 'rgba'
 CONF_LIGHT_TYPE_RGBW = 'rgbw'
 CONF_LIGHT_TYPE_RGBW_AUTO = 'rgbw_auto'
 CONF_LIGHT_TYPE_DRGB = 'drgb'
@@ -51,6 +52,7 @@ CONF_LIGHT_TYPE_RGBWD = 'rgbwd'
 CONF_LIGHT_TYPE_SWITCH = 'switch'
 CONF_LIGHT_TYPES = [CONF_LIGHT_TYPE_DIMMER,
                     CONF_LIGHT_TYPE_RGB,
+                    CONF_LIGHT_TYPE_RGBA,
                     CONF_LIGHT_TYPE_RGBW_AUTO,
                     CONF_LIGHT_TYPE_SWITCH,
                     CONF_LIGHT_TYPE_RGBW,
@@ -62,6 +64,7 @@ CONF_LIGHT_TYPES = [CONF_LIGHT_TYPE_DIMMER,
 CHANNEL_COUNT_MAP, FEATURE_MAP, COLOR_MAP = {}, {}, {}
 CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_DIMMER] = 1
 CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_RGB] = 3
+CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_RGBA] = 4
 CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_RGBW] = 4
 CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_RGBW_AUTO] = 4
 CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_DRGB] = 4
@@ -73,6 +76,8 @@ CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_SWITCH] = 1
 FEATURE_MAP[CONF_LIGHT_TYPE_DIMMER] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION)
 FEATURE_MAP[CONF_LIGHT_TYPE_RGB] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION |
                                     SUPPORT_COLOR)
+FEATURE_MAP[CONF_LIGHT_TYPE_RGBA] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION |
+                                     SUPPORT_COLOR)
 FEATURE_MAP[CONF_LIGHT_TYPE_RGBW] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION |
                                      SUPPORT_COLOR | SUPPORT_WHITE_VALUE)
 FEATURE_MAP[CONF_LIGHT_TYPE_RGBW_AUTO] = (SUPPORT_BRIGHTNESS |
@@ -88,6 +93,7 @@ FEATURE_MAP[CONF_LIGHT_TYPE_SWITCH] = 0
 # Default color for each light type if not specified in configuration
 COLOR_MAP[CONF_LIGHT_TYPE_DIMMER] = None
 COLOR_MAP[CONF_LIGHT_TYPE_RGB] = [255, 255, 255]
+COLOR_MAP[CONF_LIGHT_TYPE_RGBA] = [255, 255, 255]
 COLOR_MAP[CONF_LIGHT_TYPE_RGBW] = [255, 255, 255]
 COLOR_MAP[CONF_LIGHT_TYPE_RGBW_AUTO] = [255, 255, 255]
 COLOR_MAP[CONF_LIGHT_TYPE_DRGB] = [255, 255, 255]
@@ -233,6 +239,16 @@ class DmxLight(Light):
         if self._type == CONF_LIGHT_TYPE_RGB:
             # Scale the RGB colour value to the selected brightness
             return scale_rgb_to_brightness(self._rgb, self._brightness)
+        elif self._type == CONF_LIGHT_TYPE_RGBA:
+            # Split the white component out from the scaled RGB values
+            rgba = scale_rgb_to_brightness(self._rgb, self._brightness)
+            amber = rgba[0]
+            if (amber > rgba[1] * 2):
+                amber = rgba[1] * 2
+            rgba[0] = rgba[0] - amber
+            rgba[1] = round(rgba[1] - amber/2)
+            rgba.append(amber)
+            return rgba
         elif self._type == CONF_LIGHT_TYPE_RGBW:
             rgbw = scale_rgb_to_brightness(self._rgb, self._brightness)
             rgbw.append(round(self._white_value * (self._brightness / 255)))
