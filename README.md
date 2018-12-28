@@ -49,7 +49,7 @@ Configuration variables:
 - **host** (*Required*): Host Art-Net/DMX gateway
 - **port** (*Optional*): Defaults to 6454
 - **dmx_channels** (*Required*): The number of DMX channels to send a value for (even number between 2 & 512)
-- **default_level** (*Required*): Default level to assume the lights have been set to - in most cases 0 would make sense. Note Home Assistant will not send these values to the gateway until an explicit change is made.
+- **default_level** (*Required*): Default level for Home Assistant to assume the lights have been set to - in most cases 0 would make sense. Note Home Assistant will not send these values to the gateway until an explicit change is made unless send_levels_on_startup is True.
 - **send_levels_on_startup** (*Optional*): Defaults to True if not specified. Setting this to False means Home Assistant will not send any DMX frames until a change is made.
 - **universe** (*Optional*): Artnet Universe. Defaults to 0 if not specified.
 
@@ -64,7 +64,8 @@ Device configuration variables:
   - **'drgb'** (master-dimmer + three channel rgb), 
   - **'drgbw'** (master-dimmer + three channel rgb + white), 
   - **'rgbwd'** (three channel rgb + white + dimmer) or 'switch' (single channel with no brightness adjustments)
-- **default_level** (*Optional*): Default level to give to Home Assistant for the light (0-255)
+- **default_level** (*Optional*): Default level to assume the light is set to (0-255). 
+Please use [light_profiles.csv](https://www.home-assistant.io/components/light/#default-turn-on-values) if you want to specify a default colour or brightness to be used when turning the light on in HA.
 - **default_rgb** (*Optional*): Default colour to give to Home Assistant for the light in the format [R,G,B]
 - **white_level** (*Optional*): Default white level for RGBW lights (0-255)
 - **transition** (*Optional*): Set a default fade time for transitions. Transition times specified through the turn_on / turn_off service calls in Home Assistant will override this behaviour. 
