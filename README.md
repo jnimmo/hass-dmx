@@ -43,6 +43,10 @@ light:
       - channel: 7
         type: dimmer
         name: Smoke machine
+      - channel: 8
+        type: custom_white
+        name: Intensity/Temperature Light
+        channel_setup: dT
 ```
 
 Configuration variables:
@@ -65,8 +69,15 @@ Device configuration variables:
   - **'drgbw'** (dimmer, red, green, blue, white)
   - **'rgbwd'** (red, green, blue, white, dimmer)
   - **'switch'** (single channel 0 or 255)
-  - **'wwcw'** (warm white, cool white)
+  - **'custom_white'** (configure dimmer and temperature in any required channel order)
 - **default_level** (*Optional*): Default level to assume the light is set to (0-255). 
+- **channel_setup** (*For custom_white lights*): String to define channel layout where:
+  - d = dimmer (brightness 0 to 255)
+  - t = temperature (0 = warm, 255 = cold)
+  - T = temperature (255 = warm, 0 = cold)
+  - h = warm white value (scaled for brightness)
+  - c = cool white value (scaled for brightness)
+  
 Please use [light_profiles.csv](https://www.home-assistant.io/components/light/#default-turn-on-values) if you want to specify a default colour or brightness to be used when turning the light on in HA.
 - **default_rgb** (*Optional*): Default colour to give to Home Assistant for the light in the format [R,G,B]
 - **white_level** (*Optional*): Default white level for RGBW lights (0-255)
