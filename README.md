@@ -12,7 +12,7 @@ You need at least hass >= 0.66 in order to use this component.
 ### Usage
 
 To use DMX in your installation:
-1. Download the [dmx.py](https://github.com/jnimmo/hass-artnet/raw/master/dmx.py) file and save into the *'custom_components/light'* directory. (Create a *'custom_components'* folder in the location of your configuration.yaml file, and create a subdirectory *'light'* to store this platform)
+1. Download the [light.py](https://github.com/jnimmo/hass-artnet/raw/master/dmx/light.py) file and save into the *'custom_components/dmx'* directory. (Create a *'custom_components'* folder in the location of your configuration.yaml file, and create a subdirectory *'dmx'* to store this platform)
 2. Add the following lines to your `configuration.yaml` file:
 
 ```yaml
@@ -21,7 +21,7 @@ light:
     host: <IP Address>
     port: 6454
     dmx_channels: 512 
-    default_level: 0
+    default_level: 255
     universe: 0
     devices:
       - channel: 1
@@ -57,13 +57,15 @@ Device configuration variables:
 - **channel** (*Required*): The DMX channel for the light (1-512)
 - **name** (*Required*): Friendly name for the light (will also be used for the entity_id)
 - **type** (*Required*): 
-  - **'dimmer'** (single channel), 
-  - **'rgb'** (three channel rgb), 
-  - **'rgbw'** (three channel rgb + white), 
-  - **'rgbw_auto'** (three channel rgb + automatically calculated white value), 
-  - **'drgb'** (master-dimmer + three channel rgb), 
-  - **'drgbw'** (master-dimmer + three channel rgb + white), 
-  - **'rgbwd'** (three channel rgb + white + dimmer) or 'switch' (single channel with no brightness adjustments)
+  - **'dimmer'** (single channel)
+  - **'rgb'** (red, green, blue)
+  - **'rgbw'** (red, green, blue, white)
+  - **'rgbw_auto'** (red, green, blue, automatically calculated white value) 
+  - **'drgb'** (dimmer, red, green, blue)
+  - **'drgbw'** (dimmer, red, green, blue, white)
+  - **'rgbwd'** (red, green, blue, white, dimmer)
+  - **'switch'** (single channel 0 or 255)
+  - **'wwcw'** (warm white, cool white)
 - **default_level** (*Optional*): Default level to assume the light is set to (0-255). 
 Please use [light_profiles.csv](https://www.home-assistant.io/components/light/#default-turn-on-values) if you want to specify a default colour or brightness to be used when turning the light on in HA.
 - **default_rgb** (*Optional*): Default colour to give to Home Assistant for the light in the format [R,G,B]
@@ -74,6 +76,7 @@ Supported features:
 - Transition time can be specified through services to fade to a colour (for RGB fixtures) or value. This currently is set to run at 40 frames per second. Multiple fades at the same time seem to be possible.
 - Brightness: Once a channel is turned on brightness can be controlled through the Home Assistant interface.
 - White level: For RGB lights with a separate white LED this controls the white LED. This can be automatically controlled using the colour wheel on 'rgbw_auto' lights, or manually with 'rgbw'
+- Color temperature: For dual channel warm white/cool white fixtures this tunes the white temperature.
 
 Limitations:
 - DMX frames must send values for all channels in a universe. If you have other channels which are controlled by a different device or lighting desk, set Home Assistant to default to 0 values; and set your Art-Net device to merge on highest value rather than most recent update. This means channels could be controlled from either the desk or Home Assistant.
