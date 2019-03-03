@@ -40,7 +40,8 @@ CONF_DEFAULT_COLOR = 'default_rgb'
 CONF_DEFAULT_LEVEL = 'default_level'
 CONF_SEND_LEVELS_ON_STARTUP = 'send_levels_on_startup'
 CONF_TRANSITION = ATTR_TRANSITION
-CONF_UNIVERSE = "universe"
+CONF_UNIVERSE = 'universe'
+CONF_CHANNEL_SETUP = 'channel_setup'
 
 # Light types
 CONF_LIGHT_TYPE_DIMMER = 'dimmer'
@@ -52,7 +53,7 @@ CONF_LIGHT_TYPE_RGBW = 'rgbw'
 CONF_LIGHT_TYPE_RGBW_AUTO = 'rgbw_auto'
 CONF_LIGHT_TYPE_RGBWD = 'rgbwd'
 CONF_LIGHT_TYPE_SWITCH = 'switch'
-CONF_LIGHT_TYPE_WWCW = 'wwcw'
+CONF_LIGHT_TYPE_CUSTOM_WHITE = 'custom_white'
 CONF_LIGHT_TYPES = [CONF_LIGHT_TYPE_DIMMER,
                     CONF_LIGHT_TYPE_RGB,
                     CONF_LIGHT_TYPE_RGBA,
@@ -62,7 +63,7 @@ CONF_LIGHT_TYPES = [CONF_LIGHT_TYPE_DIMMER,
                     CONF_LIGHT_TYPE_DRGB,
                     CONF_LIGHT_TYPE_DRGBW,
                     CONF_LIGHT_TYPE_RGBWD,
-                    CONF_LIGHT_TYPE_WWCW]
+                    CONF_LIGHT_TYPE_CUSTOM_WHITE]
 
 # Number of channels used by each light type
 CHANNEL_COUNT_MAP, FEATURE_MAP, COLOR_MAP = {}, {}, {}
@@ -75,7 +76,7 @@ CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_DRGB] = 4
 CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_DRGBW] = 5
 CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_RGBWD] = 5
 CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_SWITCH] = 1
-CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_WWCW] = 2
+CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_CUSTOM_WHITE] = 2
 
 # Features supported by light types
 FEATURE_MAP[CONF_LIGHT_TYPE_DIMMER] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION)
@@ -94,7 +95,7 @@ FEATURE_MAP[CONF_LIGHT_TYPE_DRGBW] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION |
 FEATURE_MAP[CONF_LIGHT_TYPE_RGBWD] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION |
                                       SUPPORT_COLOR | SUPPORT_WHITE_VALUE)
 FEATURE_MAP[CONF_LIGHT_TYPE_SWITCH] = 0
-FEATURE_MAP[CONF_LIGHT_TYPE_WWCW] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION |
+FEATURE_MAP[CONF_LIGHT_TYPE_CUSTOM_WHITE] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION |
                                      SUPPORT_COLOR_TEMP)
 
 # Default color for each light type if not specified in configuration
@@ -107,7 +108,7 @@ COLOR_MAP[CONF_LIGHT_TYPE_DRGB] = [255, 255, 255]
 COLOR_MAP[CONF_LIGHT_TYPE_DRGBW] = [255, 255, 255]
 COLOR_MAP[CONF_LIGHT_TYPE_RGBWD] = [255, 255, 255]
 COLOR_MAP[CONF_LIGHT_TYPE_SWITCH] = None
-COLOR_MAP[CONF_LIGHT_TYPE_WWCW] = None
+COLOR_MAP[CONF_LIGHT_TYPE_CUSTOM_WHITE] = None
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_HOST): cv.string,
@@ -130,7 +131,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
             vol.Optional(CONF_TRANSITION, default=0): vol.All(vol.Coerce(int),
                                                               vol.Range(min=0,
                                                               max=60)),
-
+            vol.Optional(CONF_CHANNEL_SETUP): cv.string,
         }
     ]),
     vol.Optional(CONF_PORT, default=6454): cv.port,
@@ -177,9 +178,14 @@ class DmxLight(Light):
         self._rgb = light.get(CONF_DEFAULT_COLOR, COLOR_MAP.get(self._type))
         self._white_value = light.get(ATTR_WHITE_VALUE, 0)
         self._color_temp = int((self.min_mireds + self.max_mireds) / 2)
+        self._channel_setup = light.get(CONF_CHANNEL_SETUP, '')
 
         # Apply maps and calculations
-        self._channel_count = CHANNEL_COUNT_MAP.get(self._type, 1)
+        if self._type == CONF_LIGHT_TYPE_CUSTOM_WHITE:
+            self._channel_count = len(self._channel_setup)
+        else:
+            self._channel_count = CHANNEL_COUNT_MAP.get(self._type, 1)
+
         self._channels = [channel for channel in range(self._channel,
                                                        self._channel +
                                                        self._channel_count)]
@@ -242,6 +248,20 @@ class DmxLight(Light):
             return None
 
     @property
+    def min_mireds(self):
+        """Return the coldest color_temp that this light supports."""
+        # Default to the Philips Hue value that HA has always assumed
+        # https://developers.meethue.com/documentation/core-concepts
+        return 192
+
+    @property
+    def max_mireds(self):
+        """Return the warmest color_temp that this light supports."""
+        # Default to the Philips Hue value that HA has always assumed
+        # https://developers.meethue.com/documentation/core-concepts
+        return 448
+
+    @property
     def dmx_values(self):
         # Select which values to send over DMX
 
@@ -286,18 +306,33 @@ class DmxLight(Light):
                 return 255
             else:
                 return 0
-        elif self._type == CONF_LIGHT_TYPE_WWCW:
+        elif self._type == CONF_LIGHT_TYPE_CUSTOM_WHITE:
+            # d = dimmer
+            # c = cool (scaled for brightness)
+            # C = cool (not scaled)
+            # h = hot (scaled for brightness)
+            # H = hot (not scaled)
+            # t = temperature (0 = hot, 255 = cold) 
+            # T = temperature (255 = hot, 0 = cold)
+
             ww_fraction = (self._color_temp - self.min_mireds) / (
                            self.max_mireds - self.min_mireds)
             cw_fraction = 1 - ww_fraction
             max_fraction = max(ww_fraction, cw_fraction)
 
-            warm_value = round(self.is_on * self._brightness *
-                               (ww_fraction / max_fraction))
-            cool_value = round(self.is_on * self._brightness *
-                               (cw_fraction / max_fraction))
+            switcher = {
+                'd': self._brightness,
+                't': 255 - (ww_fraction * 255),
+                'T': ww_fraction * 255,
+                'h': self.is_on * self._brightness * (ww_fraction / max_fraction),
+                'c': self.is_on * self._brightness * (cw_fraction / max_fraction),
+            }
 
-            return [warm_value, cool_value]
+            values = list()
+            for channel in self._channel_setup:
+                values.append(int(round(switcher.get(channel, 0))))
+
+            return values
         else:
             return self._brightness
 
