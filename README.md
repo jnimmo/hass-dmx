@@ -94,6 +94,8 @@ Limitations:
 
 ### Support for other hardware
 
-Simple, FTDI-chip based USB2DMX cables can be made working with this component through a [UDP proxy implemented in C](https://gist.github.com/zonque/10b7b7183519bf7d3112881cb31b6133).
+- Simple, FTDI-chip based USB2DMX cables can be made working with this component through a [UDP proxy implemented in C](https://gist.github.com/zonque/10b7b7183519bf7d3112881cb31b6133).
+- DMX King eDMX1
+- Enttec ODE MK2
 
 **Art-Net™ Designed by and Copyright Artistic Licence Holdings Ltd**
