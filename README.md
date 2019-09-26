@@ -72,7 +72,7 @@ Configuration variables:
 - **host** (*Required*): Art-Net/DMX gateway address
 - **port** (*Optional; default=6454*): Art-Net/DMX gateway host port
 - **universe** (*Optional; default=0*): Art-Net Universe
-- **dmx_channels** (*Required*): The number of DMX channels to send a value for (even number between 2 & 512)
+- **dmx_channels** (*Optional; default=512*): The number of DMX channels to send a value for (even number between 2 & 512)
 - **default_level** (*Optional; default=255*): Default level for Home Assistant to assume all lights have been set to - in most cases 0 would make sense. Note Home Assistant will not send these values to the gateway until an explicit change is made unless send_levels_on_startup is True.
 - **default_type** (*Optional; default=dimmer*): specify the default type for devices that have not specified a type
 - **send_levels_on_startup** (*Optional; default=True*): Setting this to False means Home Assistant will not send any DMX frames until a change is made.
@@ -80,7 +80,7 @@ Configuration variables:
 Device configuration variables:
 - **channel** (*Required*): The DMX channel for the light (1-512)
 - **name** (*Required*): Friendly name for the light (will also be used for the entity_id)
-- **type** (*Required*): 
+- **type** (*Optional; default=dimmer*): 
   - **'dimmer'** (single channel)
   - **'rgb'** (red, green, blue)
   - **'rgbw'** (red, green, blue, white)
@@ -90,8 +90,8 @@ Device configuration variables:
   - **'rgbwd'** (red, green, blue, white, dimmer)
   - **'switch'** (single channel 0 or 255)
   - **'custom_white'** (configure dimmer and temperature in any required channel order)
-- **default_level** (*Optional*; default=255): Default level to assume the light is set to (0-255). 
-- **channel_setup** (*for custom_white lights*): String to define channel layout where:
+- **default_level** (*Optional; default=255*): Default level to assume the light is set to (0-255). 
+- **channel_setup** (*Optional; for custom_white lights*): String to define channel layout where:
   - d = dimmer (brightness 0 to 255)
   - t = temperature (0 = warm, 255 = cold)
   - T = temperature (255 = warm, 0 = cold)
@@ -103,16 +103,23 @@ Please use [light_profiles.csv](https://www.home-assistant.io/components/light/#
 - **white_level** (*Optional*): Default white level for RGBW lights (0-255)
 - **transition** (*Optional*): Set a default fade time for transitions. Transition times specified through the turn_on / turn_off service calls in Home Assistant will override this behaviour. 
 
-## Features ##
+## Features
 
-Supported features:
+#### Supported features
+
 - Transition time can be specified through services to fade to a colour (for RGB fixtures) or value. This currently is set to run at 40 frames per second. Multiple fades at the same time seem to be possible.
 - Brightness: Once a channel is turned on brightness can be controlled through the Home Assistant interface.
 - White level: For RGB lights with a separate white LED this controls the white LED. This can be automatically controlled using the colour wheel on 'rgbw_auto' lights, or manually with 'rgbw'
 - Color temperature: For dual channel warm white/cool white fixtures this tunes the white temperature.
 
-Limitations:
+#### Limitations
+
 - DMX frames must send values for all channels in a universe. If you have other channels which are controlled by a different device or lighting desk, set Home Assistant to default to 0 values; and set your Art-Net device to merge on highest value rather than most recent update. This means channels could be controlled from either the desk or Home Assistant.
+
+#### Future improvements
+
+- automatically default dmx_channels based on number of configured devices
+- device groups/linking
 
 #### Support for other hardware
 
