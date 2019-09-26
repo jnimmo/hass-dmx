@@ -208,6 +208,8 @@ class DMXLight(Light):
         self._dmx_gateway.set_channels(self._channels, self.dmx_values,
                                        send_immediately)
 
+        _LOGGER.debug(f"Intialized DMX light {self._name}")
+
     @property
     def name(self):
         """Return the display name of this light."""
@@ -385,7 +387,7 @@ class DMXLight(Light):
         if ATTR_COLOR_TEMP in kwargs:
             self._color_temp = kwargs[ATTR_COLOR_TEMP]
 
-        logging.debug("Setting light '%s' to %s with transition time %i",
+        _LOGGER.debug("Setting light '%s' to %s with transition time %i",
                       self._name, repr(self.dmx_values), transition)
         asyncio.ensure_future(
             self._dmx_gateway.set_channels_async(
@@ -401,8 +403,7 @@ class DMXLight(Light):
         """
         transition = kwargs.get(ATTR_TRANSITION, self._fade_time)
 
-        logging.debug("Turning off '%s' with transition  %i", self._name,
-                      transition)
+        _LOGGER.debug("Turning off '%s' with transition %i", self._name, transition)
         asyncio.ensure_future(self._dmx_gateway.set_channels_async(
             self._channels, 0, transition=transition))
         self._state = STATE_OFF
@@ -458,7 +459,7 @@ class DMXGateway(object):
         packet = self._base_packet[:]
         packet.extend(self._channels)
         self._socket.sendto(packet, (self._host, self._port))
-        logging.debug("Sending Art-Net frame")
+        _LOGGER.debug("Sending Art-Net frame")
 
     def set_channels(self, channels, value, send_immediately=True):
         # Single value for standard channels, RGB channels will have 3 or more
