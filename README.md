@@ -1,19 +1,22 @@
-# hass-dmx
-Home Assistant DMX over IP Light Platform
+# Home Assistant DMX over IP Light Platform (Art-Net)
 
-The DMX integration for Home Assistant allows you to send DMX values to an [Art-Net](http://www.art-net.org.uk) capable DMX interface.
+The DMX integration for Home Assistant allows you to send DMX values to an [Art-Net](http://www.art-net.org.uk) capable DMX interface. This component is a one way integration which sends [Art-Net](https://en.wikipedia.org/wiki/Art-Net) UDP packets to the DMX interface. This integration uses no external libraries and requires at least Python version 3.5.
 
-The component is a one way integration, and sends UDP packets to the DMX interface. This integration uses no external libraries and requires at least Python version 3.5.
+## Prerequisites
 
-### Prerequisites
+* [Home Assistant (hass)](https://www.home-assistant.io/) >= 0.66 in order to use this component.
 
-You need at least hass >= 0.66 in order to use this component.
+## Installation
 
-### Usage
+This can be easily installed with the [Home Assistant Community Store (HACS)](https://github.com/custom-components/hacs) using the repository: *jnimmo/hass-dmx*
 
-To use DMX in your installation:
-1. Download the [light.py](https://github.com/jnimmo/hass-artnet/raw/master/dmx/light.py) file and save into the *'custom_components/dmx'* directory. (Create a *'custom_components'* folder in the location of your configuration.yaml file, and create a subdirectory *'dmx'* to store this platform)
-2. Add the following lines to your `configuration.yaml` file:
+Alternatively, manual installation by downloading the [custom_components/dmx](custom_components/dmx) directory to the *'custom_components/dmx'* directory on your Home Assistant instance (generally */config/custom_components/dmx*).
+
+## Configuration
+
+hass-dmx is a community supported Home Assistant integration, if you have any questions you can discuss with the [Home Assistant DMX Community](https://community.home-assistant.io/t/dmx-lighting/2248).
+
+Example dmx config in a `configuration.yaml` file:
 
 ```yaml
 light:
@@ -83,6 +86,8 @@ Please use [light_profiles.csv](https://www.home-assistant.io/components/light/#
 - **white_level** (*Optional*): Default white level for RGBW lights (0-255)
 - **transition** (*Optional*): Set a default fade time for transitions. Transition times specified through the turn_on / turn_off service calls in Home Assistant will override this behaviour. 
 
+## Features ##
+
 Supported features:
 - Transition time can be specified through services to fade to a colour (for RGB fixtures) or value. This currently is set to run at 40 frames per second. Multiple fades at the same time seem to be possible.
 - Brightness: Once a channel is turned on brightness can be controlled through the Home Assistant interface.
@@ -92,10 +97,16 @@ Supported features:
 Limitations:
 - DMX frames must send values for all channels in a universe. If you have other channels which are controlled by a different device or lighting desk, set Home Assistant to default to 0 values; and set your Art-Net device to merge on highest value rather than most recent update. This means channels could be controlled from either the desk or Home Assistant.
 
-### Support for other hardware
+#### Support for other hardware
 
 - Simple, FTDI-chip based USB2DMX cables can be made working with this component through a [UDP proxy implemented in C](https://gist.github.com/zonque/10b7b7183519bf7d3112881cb31b6133).
 - DMX King eDMX1
 - Enttec ODE MK2
 
+## See Also
+
+* [Art-Net Wikipedia](https://en.wikipedia.org/wiki/Art-Net)
+* [Community support for Home Assistant DMX](https://community.home-assistant.io/t/dmx-lighting/2248)
+
 **Art-Net™ Designed by and Copyright Artistic Licence Holdings Ltd**
+
