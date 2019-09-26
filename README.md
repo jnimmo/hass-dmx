@@ -16,22 +16,23 @@ Alternatively, manual installation by downloading the [custom_components/dmx](cu
 
 hass-dmx is a community supported Home Assistant integration, if you have any questions you can discuss with the [Home Assistant DMX Community](https://community.home-assistant.io/t/dmx-lighting/2248).
 
+DMX lighting is configured in the `configuration.yaml` file under the *light* domain.
+
 Simplest DMX lighting setup:
 
 ```yaml
 light:
   - platform: dmx
     host: <IP Address>
-    default_level: 255
+    default_type: rgbw
     devices:
       - channel: 1
-        name: House lights
-        type: dimmer
-        transition: 3
+        name: Dance floor center
+      - channel: 2
+        name: Dance floor sides
 ```
 
-
-Example dmx config in a `configuration.yaml` file:
+More complex DMX lighting configuration:
 
 ```yaml
 light:
