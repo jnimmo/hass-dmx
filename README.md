@@ -79,7 +79,7 @@ Configuration variables:
 
 Device configuration variables:
 - **channel** (*Required*): The DMX channel for the light (1-512)
-- **name** (*Required*): Friendly name for the light (will also be used for the entity_id)
+- **name** (*Optional; default="DMX Channel #"*): Friendly name for the light (will also be used for the entity_id)
 - **type** (*Optional; default=dimmer*): 
   - **'dimmer'** (single channel)
   - **'rgb'** (red, green, blue)

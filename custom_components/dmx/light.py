@@ -122,7 +122,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
         {
             vol.Required(CONF_CHANNEL): vol.All(vol.Coerce(int),
                                                 vol.Range(min=1, max=512)),
-            vol.Required(CONF_NAME): cv.string,
+            vol.Optional(CONF_NAME): cv.string,
             vol.Optional(CONF_TYPE): vol.In(CONF_LIGHT_TYPES),
             vol.Optional(CONF_DEFAULT_LEVEL): cv.byte,
             vol.Optional(ATTR_WHITE_VALUE): cv.byte,
@@ -172,7 +172,7 @@ class DMXLight(Light):
 
         # Fixture configuration
         self._channel = light.get(CONF_CHANNEL)
-        self._name = light.get(CONF_NAME)
+        self._name = light.get(CONF_NAME, f"DMX Channel {self._channel}")
         
         self._type = light.get(CONF_TYPE, default_type)
 
