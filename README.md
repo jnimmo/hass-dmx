@@ -10,7 +10,7 @@ The DMX integration for Home Assistant allows you to send DMX values to an [Art-
 
 This can be easily installed with the [Home Assistant Community Store (HACS)](https://github.com/custom-components/hacs) using the repository: *jnimmo/hass-dmx*
 
-Alternatively, manual installation by downloading the [custom_components/dmx](custom_components/dmx) directory to the *'custom_components/dmx'* directory on your Home Assistant instance (generally */config/custom_components/dmx*).
+Alternatively, manual installation by downloading the [custom_components/dmx](custom_components/dmx) directory to the *custom_components/dmx* directory on your Home Assistant instance (generally */config/custom_components/dmx*).
 
 ## Configuration
 
