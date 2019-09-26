@@ -176,7 +176,7 @@ class DMXLight(Light):
 
         self._fade_time = light.get(CONF_TRANSITION)
         self._brightness = light.get(CONF_DEFAULT_LEVEL,
-                                     controller.default_level)
+                                     dmx_gateway.default_level)
         self._rgb = light.get(CONF_DEFAULT_COLOR, COLOR_MAP.get(self._type))
         self._white_value = light.get(ATTR_WHITE_VALUE, 0)
         self._color_temp = int((self.min_mireds + self.max_mireds) / 2)
@@ -221,6 +221,7 @@ class DMXLight(Light):
     @property
     def device_state_attributes(self):
         data = {}
+        data['dmx_universe'] = self._dmx_gateway._universe
         data['dmx_channels'] = self._channels
         data[CONF_TRANSITION] = self._fade_time
         data['dmx_values'] = self.dmx_values
