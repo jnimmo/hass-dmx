@@ -70,8 +70,8 @@ light:
 
 Configuration variables:
 - **host** (*Required*): Art-Net/DMX gateway address
-- **port** (*Optional; default=6454*): Art-Net/DMX gateway host port
-- **universe** (*Optional; default=0*): Art-Net Universe
+- **port** (*Optional; default=6454*): Art-Net/DMX gateway port
+- **universe** (*Optional; default=0*): Art-Net universe for these DMX channels
 - **dmx_channels** (*Optional; default=512*): The number of DMX channels to send a value for (even number between 2 & 512)
 - **default_level** (*Optional; default=255*): Default level for Home Assistant to assume all lights have been set to - in most cases 0 would make sense. Note Home Assistant will not send these values to the gateway until an explicit change is made unless send_levels_on_startup is True.
 - **default_type** (*Optional; default=dimmer*): specify the default type for devices that have not specified a type

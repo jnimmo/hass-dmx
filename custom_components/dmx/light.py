@@ -151,12 +151,10 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
     overall_default_level = config.get(CONF_DEFAULT_LEVEL)
     default_light_type = config.get(CONF_DEFAULT_TYPE)
 
-    dmx = None
-    if not dmx:
-        dmx = DMXGateway(host, universe, port, overall_default_level,
-                         config[CONF_DMX_CHANNELS])
+    dmx_gateway = DMXGateway(host, universe, port, overall_default_level,
+                             config[CONF_DMX_CHANNELS])
 
-    lights = (DMXLight(light, dmx, send_levels_on_startup, default_light_type) for light in
+    lights = (DMXLight(light, dmx_gateway, send_levels_on_startup, default_light_type) for light in
               config[CONF_DEVICES])
     async_add_devices(lights)
 
@@ -166,9 +164,9 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
 class DMXLight(Light):
     """Representation of a DMX Art-Net light."""
 
-    def __init__(self, light, controller, send_immediately, default_type):
+    def __init__(self, light, dmx_gateway, send_immediately, default_type):
         """Initialize DMXLight"""
-        self._controller = controller
+        self._dmx_gateway = dmx_gateway
 
         # Fixture configuration
         self._channel = light.get(CONF_CHANNEL)
@@ -207,8 +205,8 @@ class DMXLight(Light):
             self._state = STATE_OFF
 
         # Send default levels to the controller
-        self._controller.set_channels(self._channels, self.dmx_values,
-                                      send_immediately)
+        self._dmx_gateway.set_channels(self._channels, self.dmx_values,
+                                       send_immediately)
 
     @property
     def name(self):
@@ -389,7 +387,7 @@ class DMXLight(Light):
         logging.debug("Setting light '%s' to %s with transition time %i",
                       self._name, repr(self.dmx_values), transition)
         asyncio.ensure_future(
-            self._controller.set_channels_async(
+            self._dmx_gateway.set_channels_async(
                 self._channels, self.dmx_values, transition=transition))
         self.async_schedule_update_ha_state()
 
@@ -404,7 +402,7 @@ class DMXLight(Light):
 
         logging.debug("Turning off '%s' with transition  %i", self._name,
                       transition)
-        asyncio.ensure_future(self._controller.set_channels_async(
+        asyncio.ensure_future(self._dmx_gateway.set_channels_async(
             self._channels, 0, transition=transition))
         self._state = STATE_OFF
         self.async_schedule_update_ha_state()
