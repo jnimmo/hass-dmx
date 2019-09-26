@@ -16,6 +16,21 @@ Alternatively, manual installation by downloading the [custom_components/dmx](cu
 
 hass-dmx is a community supported Home Assistant integration, if you have any questions you can discuss with the [Home Assistant DMX Community](https://community.home-assistant.io/t/dmx-lighting/2248).
 
+Simplest DMX lighting setup:
+
+```yaml
+light:
+  - platform: dmx
+    host: <IP Address>
+    default_level: 255
+    devices:
+      - channel: 1
+        name: House lights
+        type: dimmer
+        transition: 3
+```
+
+
 Example dmx config in a `configuration.yaml` file:
 
 ```yaml
@@ -53,12 +68,13 @@ light:
 ```
 
 Configuration variables:
-- **host** (*Required*): Host Art-Net/DMX gateway
-- **port** (*Optional*): Defaults to 6454
+- **host** (*Required*): Art-Net/DMX gateway address
+- **port** (*Optional; default=6454*): Art-Net/DMX gateway host port
+- **universe** (*Optional; default=0*): Art-Net Universe
 - **dmx_channels** (*Required*): The number of DMX channels to send a value for (even number between 2 & 512)
-- **default_level** (*Required*): Default level for Home Assistant to assume the lights have been set to - in most cases 0 would make sense. Note Home Assistant will not send these values to the gateway until an explicit change is made unless send_levels_on_startup is True.
-- **send_levels_on_startup** (*Optional*): Defaults to True if not specified. Setting this to False means Home Assistant will not send any DMX frames until a change is made.
-- **universe** (*Optional*): Artnet Universe. Defaults to 0 if not specified.
+- **default_level** (*Optional; default=255*): Default level for Home Assistant to assume all lights have been set to - in most cases 0 would make sense. Note Home Assistant will not send these values to the gateway until an explicit change is made unless send_levels_on_startup is True.
+- **default_type** (*Optional; default=dimmer*): specify the default type for devices that have not specified a type
+- **send_levels_on_startup** (*Optional; default=True*): Setting this to False means Home Assistant will not send any DMX frames until a change is made.
 
 Device configuration variables:
 - **channel** (*Required*): The DMX channel for the light (1-512)
@@ -73,8 +89,8 @@ Device configuration variables:
   - **'rgbwd'** (red, green, blue, white, dimmer)
   - **'switch'** (single channel 0 or 255)
   - **'custom_white'** (configure dimmer and temperature in any required channel order)
-- **default_level** (*Optional*): Default level to assume the light is set to (0-255). 
-- **channel_setup** (*For custom_white lights*): String to define channel layout where:
+- **default_level** (*Optional*; default=255): Default level to assume the light is set to (0-255). 
+- **channel_setup** (*for custom_white lights*): String to define channel layout where:
   - d = dimmer (brightness 0 to 255)
   - t = temperature (0 = warm, 255 = cold)
   - T = temperature (255 = warm, 0 = cold)

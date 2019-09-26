@@ -4,7 +4,6 @@ Home Assistant support for DMX lights over IP.
 Date:     2019-03-03
 Homepage: https://github.com/jnimmo/hass-dmx
 Author:   James Nimmo
-
 """
 import asyncio
 import logging
@@ -38,6 +37,7 @@ CONF_CHANNEL = 'channel'
 CONF_DMX_CHANNELS = 'dmx_channels'
 CONF_DEFAULT_COLOR = 'default_rgb'
 CONF_DEFAULT_LEVEL = 'default_level'
+CONF_DEFAULT_TYPE = 'default_type'
 CONF_SEND_LEVELS_ON_STARTUP = 'send_levels_on_startup'
 CONF_TRANSITION = ATTR_TRANSITION
 CONF_UNIVERSE = 'universe'
@@ -117,6 +117,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
                                                           vol.Range(min=1,
                                                           max=512)),
     vol.Required(CONF_DEFAULT_LEVEL, default=255): cv.byte,
+    vol.Optional(CONF_DEFAULT_TYPE, default=CONF_LIGHT_TYPE_DIMMER): cv.string,
     vol.Required(CONF_DEVICES): vol.All(cv.ensure_list, [
         {
             vol.Required(CONF_CHANNEL): vol.All(vol.Coerce(int),
@@ -148,30 +149,33 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
 
     # Send the specified default level to pre-fill the channels with
     overall_default_level = config.get(CONF_DEFAULT_LEVEL)
+    default_light_type = config.get(CONF_DEFAULT_TYPE)
 
     dmx = None
     if not dmx:
         dmx = DMXGateway(host, universe, port, overall_default_level,
                          config[CONF_DMX_CHANNELS])
 
-    lights = (DmxLight(light, dmx, send_levels_on_startup) for light in
+    lights = (DMXLight(light, dmx, send_levels_on_startup, default_light_type) for light in
               config[CONF_DEVICES])
     async_add_devices(lights)
 
     return True
 
 
-class DmxLight(Light):
-    """Representation of a DMX Light."""
+class DMXLight(Light):
+    """Representation of a DMX Art-Net light."""
 
-    def __init__(self, light, controller, send_immediately):
-        """Initialize an artnet Light."""
+    def __init__(self, light, controller, send_immediately, default_type):
+        """Initialize DMXLight"""
         self._controller = controller
 
         # Fixture configuration
         self._channel = light.get(CONF_CHANNEL)
         self._name = light.get(CONF_NAME)
-        self._type = light.get(CONF_TYPE, CONF_LIGHT_TYPE_DIMMER)
+        
+        self._type = light.get(CONF_TYPE, default_type)
+
         self._fade_time = light.get(CONF_TRANSITION)
         self._brightness = light.get(CONF_DEFAULT_LEVEL,
                                      controller.default_level)
