@@ -1,0 +1,5 @@
+{
+  "name": "DMX and Art-net Lighting",
+  "domains": ["light"],
+  "render_readme": true
+}

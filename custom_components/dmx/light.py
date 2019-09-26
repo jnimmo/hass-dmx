@@ -4,7 +4,6 @@ Home Assistant support for DMX lights over IP.
 Date:     2019-03-03
 Homepage: https://github.com/jnimmo/hass-dmx
 Author:   James Nimmo
-
 """
 import asyncio
 import logging
@@ -38,6 +37,7 @@ CONF_CHANNEL = 'channel'
 CONF_DMX_CHANNELS = 'dmx_channels'
 CONF_DEFAULT_COLOR = 'default_rgb'
 CONF_DEFAULT_LEVEL = 'default_level'
+CONF_DEFAULT_TYPE = 'default_type'
 CONF_SEND_LEVELS_ON_STARTUP = 'send_levels_on_startup'
 CONF_TRANSITION = ATTR_TRANSITION
 CONF_UNIVERSE = 'universe'
@@ -113,15 +113,16 @@ COLOR_MAP[CONF_LIGHT_TYPE_CUSTOM_WHITE] = None
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_HOST): cv.string,
     vol.Optional(CONF_UNIVERSE, default=0): cv.byte,
-    vol.Required(CONF_DMX_CHANNELS, default=512): vol.All(vol.Coerce(int),
+    vol.Optional(CONF_DMX_CHANNELS, default=512): vol.All(vol.Coerce(int),
                                                           vol.Range(min=1,
                                                           max=512)),
-    vol.Required(CONF_DEFAULT_LEVEL, default=255): cv.byte,
+    vol.Optional(CONF_DEFAULT_LEVEL, default=255): cv.byte,
+    vol.Optional(CONF_DEFAULT_TYPE, default=CONF_LIGHT_TYPE_DIMMER): cv.string,
     vol.Required(CONF_DEVICES): vol.All(cv.ensure_list, [
         {
             vol.Required(CONF_CHANNEL): vol.All(vol.Coerce(int),
                                                 vol.Range(min=1, max=512)),
-            vol.Required(CONF_NAME): cv.string,
+            vol.Optional(CONF_NAME): cv.string,
             vol.Optional(CONF_TYPE): vol.In(CONF_LIGHT_TYPES),
             vol.Optional(CONF_DEFAULT_LEVEL): cv.byte,
             vol.Optional(ATTR_WHITE_VALUE): cv.byte,
@@ -148,33 +149,34 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
 
     # Send the specified default level to pre-fill the channels with
     overall_default_level = config.get(CONF_DEFAULT_LEVEL)
+    default_light_type = config.get(CONF_DEFAULT_TYPE)
 
-    dmx = None
-    if not dmx:
-        dmx = DMXGateway(host, universe, port, overall_default_level,
-                         config[CONF_DMX_CHANNELS])
+    dmx_gateway = DMXGateway(host, universe, port, overall_default_level,
+                             config[CONF_DMX_CHANNELS])
 
-    lights = (DmxLight(light, dmx, send_levels_on_startup) for light in
+    lights = (DMXLight(light, dmx_gateway, send_levels_on_startup, default_light_type) for light in
               config[CONF_DEVICES])
     async_add_devices(lights)
 
     return True
 
 
-class DmxLight(Light):
-    """Representation of a DMX Light."""
+class DMXLight(Light):
+    """Representation of a DMX Art-Net light."""
 
-    def __init__(self, light, controller, send_immediately):
-        """Initialize an artnet Light."""
-        self._controller = controller
+    def __init__(self, light, dmx_gateway, send_immediately, default_type):
+        """Initialize DMXLight"""
+        self._dmx_gateway = dmx_gateway
 
         # Fixture configuration
         self._channel = light.get(CONF_CHANNEL)
-        self._name = light.get(CONF_NAME)
-        self._type = light.get(CONF_TYPE, CONF_LIGHT_TYPE_DIMMER)
+        self._name = light.get(CONF_NAME, f"DMX Channel {self._channel}")
+        
+        self._type = light.get(CONF_TYPE, default_type)
+
         self._fade_time = light.get(CONF_TRANSITION)
         self._brightness = light.get(CONF_DEFAULT_LEVEL,
-                                     controller.default_level)
+                                     dmx_gateway.default_level)
         self._rgb = light.get(CONF_DEFAULT_COLOR, COLOR_MAP.get(self._type))
         self._white_value = light.get(ATTR_WHITE_VALUE, 0)
         self._color_temp = int((self.min_mireds + self.max_mireds) / 2)
@@ -203,8 +205,10 @@ class DmxLight(Light):
             self._state = STATE_OFF
 
         # Send default levels to the controller
-        self._controller.set_channels(self._channels, self.dmx_values,
-                                      send_immediately)
+        self._dmx_gateway.set_channels(self._channels, self.dmx_values,
+                                       send_immediately)
+
+        _LOGGER.debug(f"Intialized DMX light {self._name}")
 
     @property
     def name(self):
@@ -219,6 +223,7 @@ class DmxLight(Light):
     @property
     def device_state_attributes(self):
         data = {}
+        data['dmx_universe'] = self._dmx_gateway._universe
         data['dmx_channels'] = self._channels
         data[CONF_TRANSITION] = self._fade_time
         data['dmx_values'] = self.dmx_values
@@ -382,10 +387,10 @@ class DmxLight(Light):
         if ATTR_COLOR_TEMP in kwargs:
             self._color_temp = kwargs[ATTR_COLOR_TEMP]
 
-        logging.debug("Setting light '%s' to %s with transition time %i",
+        _LOGGER.debug("Setting light '%s' to %s with transition time %i",
                       self._name, repr(self.dmx_values), transition)
         asyncio.ensure_future(
-            self._controller.set_channels_async(
+            self._dmx_gateway.set_channels_async(
                 self._channels, self.dmx_values, transition=transition))
         self.async_schedule_update_ha_state()
 
@@ -398,9 +403,8 @@ class DmxLight(Light):
         """
         transition = kwargs.get(ATTR_TRANSITION, self._fade_time)
 
-        logging.debug("Turning off '%s' with transition  %i", self._name,
-                      transition)
-        asyncio.ensure_future(self._controller.set_channels_async(
+        _LOGGER.debug("Turning off '%s' with transition %i", self._name, transition)
+        asyncio.ensure_future(self._dmx_gateway.set_channels_async(
             self._channels, 0, transition=transition))
         self._state = STATE_OFF
         self.async_schedule_update_ha_state()
@@ -455,7 +459,7 @@ class DMXGateway(object):
         packet = self._base_packet[:]
         packet.extend(self._channels)
         self._socket.sendto(packet, (self._host, self._port))
-        logging.debug("Sending Art-Net frame")
+        _LOGGER.debug("Sending Art-Net frame")
 
     def set_channels(self, channels, value, send_immediately=True):
         # Single value for standard channels, RGB channels will have 3 or more
