@@ -103,6 +103,14 @@ Please use [light_profiles.csv](https://www.home-assistant.io/components/light/#
 - **white_level** (*Optional*): Default white level for RGBW lights (0-255)
 - **transition** (*Optional*): Set a default fade time for transitions. Transition times specified through the turn_on / turn_off service calls in Home Assistant will override this behaviour. 
 
+To enable debug logging for this component:
+
+```yaml
+logger:
+  logs:
+    custom_components.dmx.light: debug
+```
+
 ## Features
 
 #### Supported features
