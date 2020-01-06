@@ -8,6 +8,7 @@ Author:   James Nimmo
 import asyncio
 import logging
 import socket
+import random
 from struct import pack
 
 from homeassistant.const import (CONF_DEVICES, CONF_HOST, CONF_NAME, CONF_PORT,
@@ -30,6 +31,10 @@ import homeassistant.util.color as color_util
 import voluptuous as vol
 
 _LOGGER = logging.getLogger(__name__)
+
+# Give every command a semi-unique identifier per channelgroup
+# to allow cancelling transitions
+_last_command_ids = {}
 
 DATA_ARTNET = 'light_dmx'
 
@@ -479,6 +484,8 @@ class DMXGateway(object):
         _LOGGER.debug("Sending Art-Net frame")
 
     def set_channels(self, channels, value, send_immediately=True):
+        _last_command_ids[channels[0]] = random.randint(1, 1000000)
+
         # Single value for standard channels, RGB channels will have 3 or more
         value_arr = [value]
         if type(value) is tuple or type(value) is list:
@@ -494,6 +501,9 @@ class DMXGateway(object):
     @asyncio.coroutine
     def set_channels_async(self, channels, value, transition=0, fps=40,
                            send_immediately=True):
+        _last_command_ids[channels[0]] = random.randint(1, 1000000)
+        currently_exec_cmd_id = _last_command_ids[channels[0]]
+        
         original_values = self._channels[:]
         # Minimum of one frame for a snap transition
         number_of_frames = max(int(transition * fps), 1)
@@ -522,6 +532,11 @@ class DMXGateway(object):
                 self.send()
 
             yield from asyncio.sleep(1. / fps)
+
+            # Abort transition if new command has been sent
+            if currently_exec_cmd_id != _last_command_ids[channels[0]]:
+                _LOGGER.info("Transition aborted")
+                break
 
     def get_channel_level(self, channel):
         """
