@@ -276,10 +276,10 @@ class DMXLight(Light):
     def dmx_values(self):
         # Select which values to send over DMX
 
-        if self._type is CONF_LIGHT_TYPE_RGB:
+        if self._type == CONF_LIGHT_TYPE_RGB:
             # Scale the RGB colour value to the selected brightness
             return scale_rgb_to_brightness(self._rgb, self._brightness)
-        elif self._type is CONF_LIGHT_TYPE_RGBA:
+        elif self._type == CONF_LIGHT_TYPE_RGBA:
             # Split the white component out from the scaled RGB values
             rgba = scale_rgb_to_brightness(self._rgb, self._brightness)
             amber = rgba[0]
@@ -289,7 +289,7 @@ class DMXLight(Light):
             rgba[1] = round(rgba[1] - amber/2)
             rgba.append(amber)
             return rgba
-        elif self._type is CONF_LIGHT_TYPE_RGBAW:
+        elif self._type == CONF_LIGHT_TYPE_RGBAW:
             # Split the white component out from the scaled RGB values
             values = scale_rgb_to_brightness(self._rgb, self._brightness)
             amber = values[0]
@@ -300,35 +300,35 @@ class DMXLight(Light):
             values.append(amber)
             values.append(round(self._white_value * (self._brightness / 255)))
             return values
-        elif self._type is CONF_LIGHT_TYPE_RGBW:
+        elif self._type == CONF_LIGHT_TYPE_RGBW:
             rgbw = scale_rgb_to_brightness(self._rgb, self._brightness)
             rgbw.append(round(self._white_value * (self._brightness / 255)))
             return rgbw
-        elif self._type is CONF_LIGHT_TYPE_RGBW_AUTO:
+        elif self._type == CONF_LIGHT_TYPE_RGBW_AUTO:
             # Split the white component out from the scaled RGB values
             scaled_rgb = scale_rgb_to_brightness(self._rgb, self._brightness)
             return color_rgb_to_rgbw(*scaled_rgb)
-        elif self._type is CONF_LIGHT_TYPE_DRGB:
+        elif self._type == CONF_LIGHT_TYPE_DRGB:
             drgb = [self._brightness]
             drgb.extend(self._rgb)
             return drgb
-        elif self._type is CONF_LIGHT_TYPE_DRGBW:
+        elif self._type == CONF_LIGHT_TYPE_DRGBW:
             drgbw = [self._brightness]
             drgbw.extend(self._rgb)
             drgbw.append(self._white_value)
             return drgbw
-        elif self._type is CONF_LIGHT_TYPE_RGBWD:
+        elif self._type == CONF_LIGHT_TYPE_RGBWD:
             rgbwd = list()
             rgbwd.extend(self._rgb)
             rgbwd.append(self._white_value)
             rgbwd.append(self._brightness)
             return rgbwd
-        elif self._type is CONF_LIGHT_TYPE_SWITCH:
+        elif self._type == CONF_LIGHT_TYPE_SWITCH:
             if self.is_on:
                 return 255
             else:
                 return 0
-        elif self._type is CONF_LIGHT_TYPE_CUSTOM_WHITE:
+        elif self._type == CONF_LIGHT_TYPE_CUSTOM_WHITE:
             # d = dimmer
             # c = cool (scaled for brightness)
             # C = cool (not scaled)
