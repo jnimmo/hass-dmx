@@ -1,7 +1,7 @@
 """
 Home Assistant support for DMX lights over IP.
 
-Date:     2019-03-03
+Date:     2020-04-13
 Homepage: https://github.com/jnimmo/hass-dmx
 Author:   James Nimmo
 """
@@ -202,10 +202,9 @@ class DMXLight(Light):
         # Brightness needs to be set to the maximum default RGB level, then
         # scale up the RGB values to what HA uses
         if self._rgb:
-            self._brightness = max(self._rgb)
-            self._rgb = scale_rgb_to_brightness(self._rgb, self._brightness)
+            self._brightness = max(self._rgb) * (self._brightness/255)
 
-        if self._brightness >= 0 or self._white_value >= 0:
+        if self._brightness > 0 or self._white_value > 0:
             self._state = STATE_ON
         else:
             self._state = STATE_OFF
@@ -393,6 +392,9 @@ class DMXLight(Light):
         # Update state from service call
         if ATTR_BRIGHTNESS in kwargs:
             self._brightness = kwargs[ATTR_BRIGHTNESS]
+        
+        if self._brightness == 0:
+            self._brightness = 255
 
         if ATTR_HS_COLOR in kwargs:
             self._rgb = color_util.color_hs_to_RGB(*kwargs[ATTR_HS_COLOR])
