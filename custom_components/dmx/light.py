@@ -12,18 +12,32 @@ from struct import pack
 
 from homeassistant.const import (CONF_DEVICES, CONF_HOST, CONF_NAME, CONF_PORT,
                                  CONF_TYPE, STATE_ON, STATE_OFF)
-from homeassistant.components.light import (ATTR_BRIGHTNESS,
-                                            ATTR_HS_COLOR,
-                                            ATTR_TRANSITION,
-                                            ATTR_WHITE_VALUE,
-                                            ATTR_COLOR_TEMP,
-                                            Light,
-                                            PLATFORM_SCHEMA,
-                                            SUPPORT_BRIGHTNESS,
-                                            SUPPORT_COLOR,
-                                            SUPPORT_WHITE_VALUE,
-                                            SUPPORT_TRANSITION,
-                                            SUPPORT_COLOR_TEMP)
+try:
+  from homeassistant.components.light import (ATTR_BRIGHTNESS,
+                                              ATTR_HS_COLOR,
+                                              ATTR_TRANSITION,
+                                              ATTR_WHITE_VALUE,
+                                              ATTR_COLOR_TEMP,
+                                              LightEntity,
+                                              PLATFORM_SCHEMA,
+                                              SUPPORT_BRIGHTNESS,
+                                              SUPPORT_COLOR,
+                                              SUPPORT_WHITE_VALUE,
+                                              SUPPORT_TRANSITION,
+                                              SUPPORT_COLOR_TEMP)
+except ImportError:
+  from homeassistant.components.light import (ATTR_BRIGHTNESS,
+                                              ATTR_HS_COLOR,
+                                              ATTR_TRANSITION,
+                                              ATTR_WHITE_VALUE,
+                                              ATTR_COLOR_TEMP,
+                                              Light as LightEntity,
+                                              PLATFORM_SCHEMA,
+                                              SUPPORT_BRIGHTNESS,
+                                              SUPPORT_COLOR,
+                                              SUPPORT_WHITE_VALUE,
+                                              SUPPORT_TRANSITION,
+                                              SUPPORT_COLOR_TEMP)
 from homeassistant.util.color import color_rgb_to_rgbw
 import homeassistant.helpers.config_validation as cv
 import homeassistant.util.color as color_util
@@ -167,7 +181,7 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
     return True
 
 
-class DMXLight(Light):
+class DMXLight(LightEntity):
     """Representation of a DMX Art-Net light."""
 
     def __init__(self, light, dmx_gateway, send_immediately, default_type):
