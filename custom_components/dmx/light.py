@@ -332,7 +332,7 @@ class DMXLight(LightEntity):
             drgb.extend(self._rgb)
             return drgb
         elif self._type == CONF_LIGHT_TYPE_RGBD:
-            return [*self._rgb, self._brightness]
+            return [*self._rgb, round(self._brightness)]
         elif self._type == CONF_LIGHT_TYPE_DRGBW:
             drgbw = [self._brightness]
             drgbw.extend(self._rgb)
