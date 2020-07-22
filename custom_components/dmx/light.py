@@ -469,7 +469,7 @@ class DMXGateway(object):
             self._number_of_channels += 1
 
         # Initialise the DMX channel array with the default values
-        self._channels = [self._default_level] * self._number_of_channels
+        self._channels = [int(self._default_level)] * self._number_of_channels
 
         # Initialise socket
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP
@@ -502,7 +502,7 @@ class DMXGateway(object):
 
         for x, channel in enumerate(channels):
             default_value = value_arr[min(x, len(value_arr) - 1)]
-            self._channels[channel-1] = default_value
+            self._channels[channel-1] = int(default_value)
 
         if send_immediately:
             self.send()
