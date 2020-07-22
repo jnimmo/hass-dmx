@@ -330,14 +330,14 @@ class DMXLight(LightEntity):
             drgbw = [self._brightness]
             drgbw.extend(self._rgb if self.brightness > 0 else [0, 0, 0])
             drgbw.append(self._white_value)
-            _LOGGER.debug("drgbw: " + ', '.join([str(x) for x in drgb]));
+            _LOGGER.debug("drgbw: " + ', '.join([str(x) for x in drgbw]));
             return drgbw
         elif self._type == CONF_LIGHT_TYPE_RGBWD:
             rgbwd = list()
             rgbwd.extend(self._rgb if self.brightness > 0 else [0, 0, 0])
             rgbwd.append(self._white_value)
             rgbwd.append(self._brightness)
-            _LOGGER.debug("rgbwd: " + ', '.join([str(x) for x in drgb]));
+            _LOGGER.debug("rgbwd: " + ', '.join([str(x) for x in rgbwd]));
             return rgbwd
         elif self._type == CONF_LIGHT_TYPE_SWITCH:
             if self.is_on:
