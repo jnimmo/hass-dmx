@@ -254,7 +254,7 @@ class DMXLight(LightEntity):
         if self._rgb:
             self._brightness = max(self._rgb) * (self._brightness/255)
 
-        default_off = light.get(CONF_DEFAULT_OFF, dmx_gateway._default_off)
+        default_off = light.get(CONF_DEFAULT_OFF, False)
 
         if default_off == False and (self._brightness >= 0 or self._white_value >= 0):
             self._state = STATE_ON
@@ -492,8 +492,7 @@ class DMXGateway(object):
     Base class to keep track of the values of DMX channels.
     """
 
-    def __init__(self, host, universe, port, default_level,
-                 default_off, number_of_channels):
+    def __init__(self, host, universe, port, default_level, number_of_channels):
         """
         Initialise a bank of channels, with a default value.
         """
@@ -503,7 +502,6 @@ class DMXGateway(object):
         self._port = port
         self._number_of_channels = number_of_channels
         self._default_level = default_level
-        self._default_off = default_off
 
         # Number of channels must be even
         if number_of_channels % 2 != 0:
