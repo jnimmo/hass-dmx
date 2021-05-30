@@ -1,6 +1,5 @@
 {
   "name": "DMX and Art-net Lighting",
   "domains": ["light"],
-  "render_readme": true,
-  "version": "0.1"
+  "render_readme": true
 }
