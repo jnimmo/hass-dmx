@@ -138,6 +138,7 @@ logger:
 - Simple, FTDI-chip based USB2DMX cables can be made working with this component through a [UDP proxy implemented in C](https://gist.github.com/zonque/10b7b7183519bf7d3112881cb31b6133).
 - DMX King eDMX1
 - Enttec ODE MK2
+- Enttec DIN Ethergate
 
 ## See Also
 
