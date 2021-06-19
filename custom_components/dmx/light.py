@@ -86,6 +86,7 @@ CONF_LIGHT_TYPE_RGBW = 'rgbw'
 CONF_LIGHT_TYPE_RGBW_AUTO = 'rgbw_auto'
 CONF_LIGHT_TYPE_RGBWD = 'rgbwd'
 CONF_LIGHT_TYPE_SWITCH = 'switch'
+CONF_LIGHT_TYPE_FIXED = 'fixed'
 CONF_LIGHT_TYPE_CUSTOM_WHITE = 'custom_white'
 CONF_LIGHT_TYPES = [CONF_LIGHT_TYPE_DIMMER,
                     CONF_LIGHT_TYPE_RGB,
@@ -93,6 +94,7 @@ CONF_LIGHT_TYPES = [CONF_LIGHT_TYPE_DIMMER,
                     CONF_LIGHT_TYPE_RGBAW,
                     CONF_LIGHT_TYPE_RGBW_AUTO,
                     CONF_LIGHT_TYPE_SWITCH,
+                    CONF_LIGHT_TYPE_FIXED,
                     CONF_LIGHT_TYPE_RGBD,
                     CONF_LIGHT_TYPE_RGBW,
                     CONF_LIGHT_TYPE_DRGB,
@@ -113,6 +115,7 @@ CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_DRGB] = 4
 CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_DRGBW] = 5
 CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_RGBWD] = 5
 CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_SWITCH] = 1
+CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_FIXED] = 1
 CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_CUSTOM_WHITE] = 2
 
 # Features supported by light types
@@ -136,6 +139,7 @@ FEATURE_MAP[CONF_LIGHT_TYPE_DRGBW] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION |
 FEATURE_MAP[CONF_LIGHT_TYPE_RGBWD] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION |
                                       SUPPORT_COLOR | SUPPORT_WHITE_VALUE)
 FEATURE_MAP[CONF_LIGHT_TYPE_SWITCH] = 0
+FEATURE_MAP[CONF_LIGHT_TYPE_FIXED] = 0
 FEATURE_MAP[CONF_LIGHT_TYPE_CUSTOM_WHITE] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION |
                                      SUPPORT_COLOR_TEMP)
 
@@ -151,6 +155,7 @@ COLOR_MAP[CONF_LIGHT_TYPE_DRGB] = [255, 255, 255]
 COLOR_MAP[CONF_LIGHT_TYPE_DRGBW] = [255, 255, 255]
 COLOR_MAP[CONF_LIGHT_TYPE_RGBWD] = [255, 255, 255]
 COLOR_MAP[CONF_LIGHT_TYPE_SWITCH] = None
+COLOR_MAP[CONF_LIGHT_TYPE_FIXED] = None
 COLOR_MAP[CONF_LIGHT_TYPE_CUSTOM_WHITE] = None
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
@@ -440,6 +445,10 @@ class DMXLight(LightEntity):
         Move to using one method on the DMX class to set/fade either a single
         channel or group of channels
         """
+
+        if self._type == CONF_LIGHT_TYPE_FIXED:
+            return
+
         self._state = STATE_ON
         transition = kwargs.get(ATTR_TRANSITION, self._fade_time)
 
@@ -474,6 +483,10 @@ class DMXLight(LightEntity):
         If a transition time has been specified in
         seconds the controller will fade.
         """
+
+        if self._type == CONF_LIGHT_TYPE_FIXED:
+            return
+
         transition = kwargs.get(ATTR_TRANSITION, self._fade_time)
 
         _LOGGER.debug("Turning off '%s' with transition %i", self._name, transition)
