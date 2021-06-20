@@ -232,7 +232,8 @@ class DMXLight(LightEntity):
         # Fixture configuration
         self._channel = light.get(CONF_CHANNEL)
         self._name = light.get(CONF_NAME, f"DMX Channel {self._channel}")
-
+        self._unique_id = self._name.lower().replace(' ', '_')
+		
         self._type = light.get(CONF_TYPE, default_type)
 
         self._fade_time = light.get(CONF_TRANSITION)
@@ -276,6 +277,11 @@ class DMXLight(LightEntity):
     def name(self):
         """Return the display name of this light."""
         return self._name
+
+    @property
+    def unique_id(self):
+        """Return a unique ID."""
+        return self._unique_id
 
     @property
     def brightness(self):
