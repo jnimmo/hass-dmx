@@ -238,6 +238,8 @@ class DMXLight(LightEntity):
         self._color_temp = int((self.min_mireds + self.max_mireds) / 2)
         self._channel_setup = light.get(CONF_CHANNEL_SETUP, '')
 
+        self._unique_id = str(dmx_gateway.universe) + "_" + str(self._channel)
+
         # Apply maps and calculations
         if self._type == CONF_LIGHT_TYPE_CUSTOM_WHITE:
             self._channel_count = len(self._channel_setup)
@@ -581,6 +583,10 @@ class DMXGateway(object):
     @property
     def default_level(self):
         return self._default_level
+
+    @property
+    def universe(self):
+        return self._universe
 
 class ArtNetGateway(DMXGateway):
     """
