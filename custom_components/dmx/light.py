@@ -184,7 +184,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
                 vol.Coerce(tuple)),
             vol.Optional(CONF_TRANSITION, default=0): vol.All(vol.Coerce(float),
                                                               vol.Range(min=0,
-                                                              max=60)),
+                                                              max=3600)),
             vol.Optional(CONF_CHANNEL_SETUP): cv.string,
         }
     ]),
