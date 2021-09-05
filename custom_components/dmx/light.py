@@ -40,6 +40,9 @@ except ImportError:
                                               SUPPORT_TRANSITION,
                                               SUPPORT_COLOR_TEMP)
 from homeassistant.util.color import color_rgb_to_rgbw
+from homeassistant.helpers.restore_state import RestoreEntity
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.core import callback
 import homeassistant.helpers.config_validation as cv
 import homeassistant.util.color as color_util
 import voluptuous as vol
@@ -86,6 +89,7 @@ CONF_LIGHT_TYPE_RGBW = 'rgbw'
 CONF_LIGHT_TYPE_RGBW_AUTO = 'rgbw_auto'
 CONF_LIGHT_TYPE_RGBWD = 'rgbwd'
 CONF_LIGHT_TYPE_SWITCH = 'switch'
+CONF_LIGHT_TYPE_FIXED = 'fixed'
 CONF_LIGHT_TYPE_CUSTOM_WHITE = 'custom_white'
 CONF_LIGHT_TYPES = [CONF_LIGHT_TYPE_DIMMER,
                     CONF_LIGHT_TYPE_RGB,
@@ -93,6 +97,7 @@ CONF_LIGHT_TYPES = [CONF_LIGHT_TYPE_DIMMER,
                     CONF_LIGHT_TYPE_RGBAW,
                     CONF_LIGHT_TYPE_RGBW_AUTO,
                     CONF_LIGHT_TYPE_SWITCH,
+                    CONF_LIGHT_TYPE_FIXED,
                     CONF_LIGHT_TYPE_RGBD,
                     CONF_LIGHT_TYPE_RGBW,
                     CONF_LIGHT_TYPE_DRGB,
@@ -113,6 +118,7 @@ CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_DRGB] = 4
 CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_DRGBW] = 5
 CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_RGBWD] = 5
 CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_SWITCH] = 1
+CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_FIXED] = 1
 CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_CUSTOM_WHITE] = 2
 
 # Features supported by light types
@@ -136,6 +142,7 @@ FEATURE_MAP[CONF_LIGHT_TYPE_DRGBW] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION |
 FEATURE_MAP[CONF_LIGHT_TYPE_RGBWD] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION |
                                       SUPPORT_COLOR | SUPPORT_WHITE_VALUE)
 FEATURE_MAP[CONF_LIGHT_TYPE_SWITCH] = 0
+FEATURE_MAP[CONF_LIGHT_TYPE_FIXED] = 0
 FEATURE_MAP[CONF_LIGHT_TYPE_CUSTOM_WHITE] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION |
                                      SUPPORT_COLOR_TEMP)
 
@@ -151,6 +158,7 @@ COLOR_MAP[CONF_LIGHT_TYPE_DRGB] = [255, 255, 255]
 COLOR_MAP[CONF_LIGHT_TYPE_DRGBW] = [255, 255, 255]
 COLOR_MAP[CONF_LIGHT_TYPE_RGBWD] = [255, 255, 255]
 COLOR_MAP[CONF_LIGHT_TYPE_SWITCH] = None
+COLOR_MAP[CONF_LIGHT_TYPE_FIXED] = None
 COLOR_MAP[CONF_LIGHT_TYPE_CUSTOM_WHITE] = None
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
@@ -210,14 +218,17 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
         dmx_gateway = KiNetGateway(host, universe, port, overall_default_level,
                 config[CONF_DMX_CHANNELS])
 
-    lights = (DMXLight(light, dmx_gateway, send_levels_on_startup, default_light_type) for light in
+    lights = (DMXLight(light, dmx_gateway, False, default_light_type) for light in
               config[CONF_DEVICES])
     async_add_devices(lights)
 
+    #if send_levels_on_startup:
+    #    dmx_gateway.send()
+    
     return True
 
 
-class DMXLight(LightEntity):
+class DMXLight(LightEntity, RestoreEntity):
     """Representation of a DMX Art-Net light."""
 
     def __init__(self, light, dmx_gateway, send_immediately, default_type):
@@ -227,7 +238,8 @@ class DMXLight(LightEntity):
         # Fixture configuration
         self._channel = light.get(CONF_CHANNEL)
         self._name = light.get(CONF_NAME, f"DMX Channel {self._channel}")
-
+        self._unique_id = self._name.lower().replace(' ', '_')
+		
         self._type = light.get(CONF_TYPE, default_type)
 
         self._fade_time = light.get(CONF_TRANSITION)
@@ -256,16 +268,18 @@ class DMXLight(LightEntity):
         if self._rgb:
             self._brightness = max(self._rgb) * (self._brightness/255)
 
-        default_off = light.get(CONF_DEFAULT_OFF, False)
+        self._default_off = light.get(CONF_DEFAULT_OFF, False)
 
-        if default_off == False and (self._brightness >= 0 or self._white_value >= 0):
+        if self._default_off == False and (self._brightness >= 0 or self._white_value >= 0):
             self._state = STATE_ON
         else:
             self._state = STATE_OFF
 
         # Send default levels to the controller
-        self._dmx_gateway.set_channels(self._channels, self.dmx_values if default_off == False else 0,
-                                       send_immediately)
+        self._send_when_added = send_immediately
+
+        self._dmx_gateway.set_channels(self._channels, self.dmx_values if self._default_off == False else 0,
+                                       False)
 
         _LOGGER.debug(f"Intialized DMX light {self._name}")
 
@@ -273,6 +287,11 @@ class DMXLight(LightEntity):
     def name(self):
         """Return the display name of this light."""
         return self._name
+
+    @property
+    def unique_id(self):
+        """Return a unique ID."""
+        return self._unique_id
 
     @property
     def brightness(self):
@@ -442,6 +461,10 @@ class DMXLight(LightEntity):
         Move to using one method on the DMX class to set/fade either a single
         channel or group of channels
         """
+
+        if self._type == CONF_LIGHT_TYPE_FIXED:
+            return
+
         self._state = STATE_ON
         transition = kwargs.get(ATTR_TRANSITION, self._fade_time)
 
@@ -466,7 +489,7 @@ class DMXLight(LightEntity):
                       self._name, repr(self.dmx_values), transition)
         asyncio.ensure_future(
             self._dmx_gateway.set_channels_async(
-                self._channels, self.dmx_values, transition=transition))
+                self._channels, self.dmx_values))
         self.async_schedule_update_ha_state()
 
     @asyncio.coroutine
@@ -476,6 +499,10 @@ class DMXLight(LightEntity):
         If a transition time has been specified in
         seconds the controller will fade.
         """
+
+        if self._type == CONF_LIGHT_TYPE_FIXED:
+            return
+
         transition = kwargs.get(ATTR_TRANSITION, self._fade_time)
 
         _LOGGER.debug("Turning off '%s' with transition %i", self._name, transition)
@@ -484,10 +511,45 @@ class DMXLight(LightEntity):
         self._state = STATE_OFF
         self.async_schedule_update_ha_state()
 
+    @callback
+    def _schedule_immediate_update(self):
+        self.async_schedule_update_ha_state(True)
+        
     def update(self):
         """Fetch update state."""
         # Nothing to return
 
+    async def async_added_to_hass(self) -> None:
+        """Handle entity which will be added."""
+        await super().async_added_to_hass()
+        old_state = await self.async_get_last_state()
+        if not old_state:
+            return
+
+        if self._type != CONF_LIGHT_TYPE_FIXED:
+
+            self._state = old_state.state
+            if self._default_off:
+                self._state = STATE_OFF
+
+            old_dmx_values = old_state.attributes.get('dmx_values')
+
+            self._brightness = old_dmx_values
+            _LOGGER.debug("Old brightness is", old_dmx_values)
+
+        if self._state == STATE_OFF:
+            values = 0
+        else:
+            values = self.dmx_values
+
+        asyncio.ensure_future(self._dmx_gateway.set_channels_async(
+            self._channels, values, self._send_when_added))
+
+        #self._dmx_gateway.set_channels(self._channels, self.dmx_values if self._default_off == False else 0, self._send_when_added)
+
+        #async_dispatcher_connect(
+        #    self._hass, DATA_UPDATED, self._schedule_immediate_update
+        #)
 
 class DMXGateway(object):
     """
