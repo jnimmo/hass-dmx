@@ -11,37 +11,48 @@ import socket
 import random
 from struct import pack
 
-from homeassistant.const import (CONF_DEVICES, CONF_HOST, CONF_NAME, CONF_PORT,
-                                 CONF_TYPE, STATE_ON, STATE_OFF)
+from homeassistant.const import (
+    CONF_DEVICES,
+    CONF_HOST,
+    CONF_NAME,
+    CONF_PORT,
+    CONF_TYPE,
+    STATE_ON,
+    STATE_OFF,
+)
+
 try:
-  from homeassistant.components.light import (ATTR_BRIGHTNESS,
-                                              ATTR_HS_COLOR,
-                                              ATTR_TRANSITION,
-                                              ATTR_WHITE_VALUE,
-                                              ATTR_COLOR_TEMP,
-                                              LightEntity,
-                                              PLATFORM_SCHEMA,
-                                              SUPPORT_BRIGHTNESS,
-                                              SUPPORT_COLOR,
-                                              SUPPORT_WHITE_VALUE,
-                                              SUPPORT_TRANSITION,
-                                              SUPPORT_COLOR_TEMP)
+    from homeassistant.components.light import (
+        ATTR_BRIGHTNESS,
+        ATTR_HS_COLOR,
+        ATTR_TRANSITION,
+        ATTR_WHITE_VALUE,
+        ATTR_COLOR_TEMP,
+        LightEntity,
+        PLATFORM_SCHEMA,
+        SUPPORT_BRIGHTNESS,
+        SUPPORT_COLOR,
+        SUPPORT_WHITE_VALUE,
+        SUPPORT_TRANSITION,
+        SUPPORT_COLOR_TEMP,
+    )
 except ImportError:
-  from homeassistant.components.light import (ATTR_BRIGHTNESS,
-                                              ATTR_HS_COLOR,
-                                              ATTR_TRANSITION,
-                                              ATTR_WHITE_VALUE,
-                                              ATTR_COLOR_TEMP,
-                                              Light as LightEntity,
-                                              PLATFORM_SCHEMA,
-                                              SUPPORT_BRIGHTNESS,
-                                              SUPPORT_COLOR,
-                                              SUPPORT_WHITE_VALUE,
-                                              SUPPORT_TRANSITION,
-                                              SUPPORT_COLOR_TEMP)
+    from homeassistant.components.light import (
+        ATTR_BRIGHTNESS,
+        ATTR_HS_COLOR,
+        ATTR_TRANSITION,
+        ATTR_WHITE_VALUE,
+        ATTR_COLOR_TEMP,
+        Light as LightEntity,
+        PLATFORM_SCHEMA,
+        SUPPORT_BRIGHTNESS,
+        SUPPORT_COLOR,
+        SUPPORT_WHITE_VALUE,
+        SUPPORT_TRANSITION,
+        SUPPORT_COLOR_TEMP,
+    )
 from homeassistant.util.color import color_rgb_to_rgbw
 from homeassistant.helpers.restore_state import RestoreEntity
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.core import callback
 import homeassistant.helpers.config_validation as cv
 import homeassistant.util.color as color_util
@@ -53,57 +64,58 @@ _LOGGER = logging.getLogger(__name__)
 # to allow cancelling transitions
 _last_command_ids = {}
 
-DATA_ARTNET = 'light_dmx'
+DATA_ARTNET = "light_dmx"
 
-CONF_CHANNEL = 'channel'
-CONF_DMX_CHANNELS = 'dmx_channels'
-CONF_DEFAULT_COLOR = 'default_rgb'
-CONF_DEFAULT_LEVEL = 'default_level'
-CONF_DEFAULT_OFF = 'default_off'
-CONF_DEFAULT_TYPE = 'default_type'
-CONF_SEND_LEVELS_ON_STARTUP = 'send_levels_on_startup'
+CONF_CHANNEL = "channel"
+CONF_DMX_CHANNELS = "dmx_channels"
+CONF_DEFAULT_COLOR = "default_rgb"
+CONF_DEFAULT_LEVEL = "default_level"
+CONF_DEFAULT_OFF = "default_off"
+CONF_DEFAULT_TYPE = "default_type"
+CONF_SEND_LEVELS_ON_STARTUP = "send_levels_on_startup"
 CONF_TRANSITION = ATTR_TRANSITION
-CONF_UNIVERSE = 'universe'
-CONF_CHANNEL_SETUP = 'channel_setup'
-CONF_PROTOCOL = 'protocol'
+CONF_UNIVERSE = "universe"
+CONF_CHANNEL_SETUP = "channel_setup"
+CONF_PROTOCOL = "protocol"
 
 # Protocols
-CONF_PROTOCOL_ARTNET = 'artnet'
-CONF_PROTOCOL_KINET = 'kinet'
-CONF_PROTOCOLS = [CONF_PROTOCOL_ARTNET,
-                  CONF_PROTOCOL_KINET]
+CONF_PROTOCOL_ARTNET = "artnet"
+CONF_PROTOCOL_KINET = "kinet"
+CONF_PROTOCOLS = [CONF_PROTOCOL_ARTNET, CONF_PROTOCOL_KINET]
 
 # Ports
 CONF_PORT_ARTNET = 6454
 CONF_PORT_KINET = 6038
 
 # Light types
-CONF_LIGHT_TYPE_DIMMER = 'dimmer'
-CONF_LIGHT_TYPE_DRGB = 'drgb'
-CONF_LIGHT_TYPE_DRGBW = 'drgbw'
-CONF_LIGHT_TYPE_RGB = 'rgb'
-CONF_LIGHT_TYPE_RGBA = 'rgba'
-CONF_LIGHT_TYPE_RGBAW = 'rgbaw'
-CONF_LIGHT_TYPE_RGBD = 'rgbd'
-CONF_LIGHT_TYPE_RGBW = 'rgbw'
-CONF_LIGHT_TYPE_RGBW_AUTO = 'rgbw_auto'
-CONF_LIGHT_TYPE_RGBWD = 'rgbwd'
-CONF_LIGHT_TYPE_SWITCH = 'switch'
-CONF_LIGHT_TYPE_FIXED = 'fixed'
-CONF_LIGHT_TYPE_CUSTOM_WHITE = 'custom_white'
-CONF_LIGHT_TYPES = [CONF_LIGHT_TYPE_DIMMER,
-                    CONF_LIGHT_TYPE_RGB,
-                    CONF_LIGHT_TYPE_RGBA,
-                    CONF_LIGHT_TYPE_RGBAW,
-                    CONF_LIGHT_TYPE_RGBW_AUTO,
-                    CONF_LIGHT_TYPE_SWITCH,
-                    CONF_LIGHT_TYPE_FIXED,
-                    CONF_LIGHT_TYPE_RGBD,
-                    CONF_LIGHT_TYPE_RGBW,
-                    CONF_LIGHT_TYPE_DRGB,
-                    CONF_LIGHT_TYPE_DRGBW,
-                    CONF_LIGHT_TYPE_RGBWD,
-                    CONF_LIGHT_TYPE_CUSTOM_WHITE]
+CONF_LIGHT_TYPE_DIMMER = "dimmer"
+CONF_LIGHT_TYPE_DRGB = "drgb"
+CONF_LIGHT_TYPE_DRGBW = "drgbw"
+CONF_LIGHT_TYPE_RGB = "rgb"
+CONF_LIGHT_TYPE_RGBA = "rgba"
+CONF_LIGHT_TYPE_RGBAW = "rgbaw"
+CONF_LIGHT_TYPE_RGBD = "rgbd"
+CONF_LIGHT_TYPE_RGBW = "rgbw"
+CONF_LIGHT_TYPE_RGBW_AUTO = "rgbw_auto"
+CONF_LIGHT_TYPE_RGBWD = "rgbwd"
+CONF_LIGHT_TYPE_SWITCH = "switch"
+CONF_LIGHT_TYPE_FIXED = "fixed"
+CONF_LIGHT_TYPE_CUSTOM_WHITE = "custom_white"
+CONF_LIGHT_TYPES = [
+    CONF_LIGHT_TYPE_DIMMER,
+    CONF_LIGHT_TYPE_RGB,
+    CONF_LIGHT_TYPE_RGBA,
+    CONF_LIGHT_TYPE_RGBAW,
+    CONF_LIGHT_TYPE_RGBW_AUTO,
+    CONF_LIGHT_TYPE_SWITCH,
+    CONF_LIGHT_TYPE_FIXED,
+    CONF_LIGHT_TYPE_RGBD,
+    CONF_LIGHT_TYPE_RGBW,
+    CONF_LIGHT_TYPE_DRGB,
+    CONF_LIGHT_TYPE_DRGBW,
+    CONF_LIGHT_TYPE_RGBWD,
+    CONF_LIGHT_TYPE_CUSTOM_WHITE,
+]
 
 # Number of channels used by each light type
 CHANNEL_COUNT_MAP, FEATURE_MAP, COLOR_MAP = {}, {}, {}
@@ -122,29 +134,39 @@ CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_FIXED] = 1
 CHANNEL_COUNT_MAP[CONF_LIGHT_TYPE_CUSTOM_WHITE] = 2
 
 # Features supported by light types
-FEATURE_MAP[CONF_LIGHT_TYPE_DIMMER] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION)
-FEATURE_MAP[CONF_LIGHT_TYPE_RGB] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION |
-                                    SUPPORT_COLOR)
-FEATURE_MAP[CONF_LIGHT_TYPE_RGBA] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION |
-                                     SUPPORT_COLOR)
-FEATURE_MAP[CONF_LIGHT_TYPE_RGBAW] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION |
-                                     SUPPORT_COLOR | SUPPORT_WHITE_VALUE)
-FEATURE_MAP[CONF_LIGHT_TYPE_RGBD] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION |
-                                     SUPPORT_COLOR)
-FEATURE_MAP[CONF_LIGHT_TYPE_RGBW] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION |
-                                     SUPPORT_COLOR | SUPPORT_WHITE_VALUE)
-FEATURE_MAP[CONF_LIGHT_TYPE_RGBW_AUTO] = (SUPPORT_BRIGHTNESS |
-                                          SUPPORT_TRANSITION | SUPPORT_COLOR)
-FEATURE_MAP[CONF_LIGHT_TYPE_DRGB] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION |
-                                     SUPPORT_COLOR)
-FEATURE_MAP[CONF_LIGHT_TYPE_DRGBW] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION |
-                                      SUPPORT_COLOR | SUPPORT_WHITE_VALUE)
-FEATURE_MAP[CONF_LIGHT_TYPE_RGBWD] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION |
-                                      SUPPORT_COLOR | SUPPORT_WHITE_VALUE)
+FEATURE_MAP[CONF_LIGHT_TYPE_DIMMER] = SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION
+FEATURE_MAP[CONF_LIGHT_TYPE_RGB] = (
+    SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION | SUPPORT_COLOR
+)
+FEATURE_MAP[CONF_LIGHT_TYPE_RGBA] = (
+    SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION | SUPPORT_COLOR
+)
+FEATURE_MAP[CONF_LIGHT_TYPE_RGBAW] = (
+    SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION | SUPPORT_COLOR | SUPPORT_WHITE_VALUE
+)
+FEATURE_MAP[CONF_LIGHT_TYPE_RGBD] = (
+    SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION | SUPPORT_COLOR
+)
+FEATURE_MAP[CONF_LIGHT_TYPE_RGBW] = (
+    SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION | SUPPORT_COLOR | SUPPORT_WHITE_VALUE
+)
+FEATURE_MAP[CONF_LIGHT_TYPE_RGBW_AUTO] = (
+    SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION | SUPPORT_COLOR
+)
+FEATURE_MAP[CONF_LIGHT_TYPE_DRGB] = (
+    SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION | SUPPORT_COLOR
+)
+FEATURE_MAP[CONF_LIGHT_TYPE_DRGBW] = (
+    SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION | SUPPORT_COLOR | SUPPORT_WHITE_VALUE
+)
+FEATURE_MAP[CONF_LIGHT_TYPE_RGBWD] = (
+    SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION | SUPPORT_COLOR | SUPPORT_WHITE_VALUE
+)
 FEATURE_MAP[CONF_LIGHT_TYPE_SWITCH] = 0
 FEATURE_MAP[CONF_LIGHT_TYPE_FIXED] = 0
-FEATURE_MAP[CONF_LIGHT_TYPE_CUSTOM_WHITE] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION |
-                                     SUPPORT_COLOR_TEMP)
+FEATURE_MAP[CONF_LIGHT_TYPE_CUSTOM_WHITE] = (
+    SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION | SUPPORT_COLOR_TEMP
+)
 
 # Default color for each light type if not specified in configuration
 COLOR_MAP[CONF_LIGHT_TYPE_DIMMER] = None
@@ -161,37 +183,46 @@ COLOR_MAP[CONF_LIGHT_TYPE_SWITCH] = None
 COLOR_MAP[CONF_LIGHT_TYPE_FIXED] = None
 COLOR_MAP[CONF_LIGHT_TYPE_CUSTOM_WHITE] = None
 
-PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
-    vol.Required(CONF_HOST): cv.string,
-    vol.Optional(CONF_UNIVERSE, default=0): cv.byte,
-    vol.Optional(CONF_DMX_CHANNELS, default=512): vol.All(vol.Coerce(int),
-                                                          vol.Range(min=1,
-                                                          max=512)),
-    vol.Optional(CONF_DEFAULT_LEVEL, default=255): cv.byte,
-    vol.Optional(CONF_DEFAULT_OFF, default=True): vol.Boolean(),
-    vol.Optional(CONF_DEFAULT_TYPE, default=CONF_LIGHT_TYPE_DIMMER): cv.string,
-    vol.Required(CONF_DEVICES): vol.All(cv.ensure_list, [
-        {
-            vol.Required(CONF_CHANNEL): vol.All(vol.Coerce(int),
-                                                vol.Range(min=1, max=512)),
-            vol.Optional(CONF_NAME): cv.string,
-            vol.Optional(CONF_TYPE): vol.In(CONF_LIGHT_TYPES),
-            vol.Optional(CONF_DEFAULT_LEVEL): cv.byte,
-            vol.Optional(ATTR_WHITE_VALUE): cv.byte,
-            vol.Optional(CONF_DEFAULT_OFF): vol.Boolean(),
-            vol.Optional(CONF_DEFAULT_COLOR): vol.All(
-                vol.ExactSequence((cv.byte, cv.byte, cv.byte)),
-                vol.Coerce(tuple)),
-            vol.Optional(CONF_TRANSITION, default=0): vol.All(vol.Coerce(float),
-                                                              vol.Range(min=0,
-                                                              max=3600)),
-            vol.Optional(CONF_CHANNEL_SETUP): cv.string,
-        }
-    ]),
-    vol.Optional(CONF_PORT): cv.port,
-    vol.Optional(CONF_SEND_LEVELS_ON_STARTUP, default=True): cv.boolean,
-    vol.Optional(CONF_PROTOCOL, default=CONF_PROTOCOL_ARTNET): vol.In(CONF_PROTOCOLS),
-})
+PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
+    {
+        vol.Required(CONF_HOST): cv.string,
+        vol.Optional(CONF_UNIVERSE, default=0): cv.byte,
+        vol.Optional(CONF_DMX_CHANNELS, default=512): vol.All(
+            vol.Coerce(int), vol.Range(min=1, max=512)
+        ),
+        vol.Optional(CONF_DEFAULT_LEVEL, default=255): cv.byte,
+        vol.Optional(CONF_DEFAULT_OFF, default=True): vol.Boolean(),
+        vol.Optional(CONF_DEFAULT_TYPE, default=CONF_LIGHT_TYPE_DIMMER): cv.string,
+        vol.Required(CONF_DEVICES): vol.All(
+            cv.ensure_list,
+            [
+                {
+                    vol.Required(CONF_CHANNEL): vol.All(
+                        vol.Coerce(int), vol.Range(min=1, max=512)
+                    ),
+                    vol.Optional(CONF_NAME): cv.string,
+                    vol.Optional(CONF_TYPE): vol.In(CONF_LIGHT_TYPES),
+                    vol.Optional(CONF_DEFAULT_LEVEL): cv.byte,
+                    vol.Optional(ATTR_WHITE_VALUE): cv.byte,
+                    vol.Optional(CONF_DEFAULT_OFF): vol.Boolean(),
+                    vol.Optional(CONF_DEFAULT_COLOR): vol.All(
+                        vol.ExactSequence((cv.byte, cv.byte, cv.byte)),
+                        vol.Coerce(tuple),
+                    ),
+                    vol.Optional(CONF_TRANSITION, default=0): vol.All(
+                        vol.Coerce(float), vol.Range(min=0, max=3600)
+                    ),
+                    vol.Optional(CONF_CHANNEL_SETUP): cv.string,
+                }
+            ],
+        ),
+        vol.Optional(CONF_PORT): cv.port,
+        vol.Optional(CONF_SEND_LEVELS_ON_STARTUP, default=True): cv.boolean,
+        vol.Optional(CONF_PROTOCOL, default=CONF_PROTOCOL_ARTNET): vol.In(
+            CONF_PROTOCOLS
+        ),
+    }
+)
 
 
 @asyncio.coroutine
@@ -210,21 +241,25 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
     if protocol == CONF_PROTOCOL_ARTNET:
         if not port:
             port = CONF_PORT_ARTNET
-        dmx_gateway = ArtNetGateway(host, universe, port, overall_default_level,
-                config[CONF_DMX_CHANNELS])
+        dmx_gateway = ArtNetGateway(
+            host, universe, port, overall_default_level, config[CONF_DMX_CHANNELS]
+        )
     elif protocol == CONF_PROTOCOL_KINET:
         if not port:
             port = CONF_PORT_KINET
-        dmx_gateway = KiNetGateway(host, universe, port, overall_default_level,
-                config[CONF_DMX_CHANNELS])
+        dmx_gateway = KiNetGateway(
+            host, universe, port, overall_default_level, config[CONF_DMX_CHANNELS]
+        )
 
-    lights = (DMXLight(light, dmx_gateway, False, default_light_type) for light in
-              config[CONF_DEVICES])
+    lights = (
+        DMXLight(light, dmx_gateway, False, default_light_type)
+        for light in config[CONF_DEVICES]
+    )
     async_add_devices(lights)
 
-    #if send_levels_on_startup:
+    # if send_levels_on_startup:
     #    dmx_gateway.send()
-    
+
     return True
 
 
@@ -238,17 +273,16 @@ class DMXLight(LightEntity, RestoreEntity):
         # Fixture configuration
         self._channel = light.get(CONF_CHANNEL)
         self._name = light.get(CONF_NAME, f"DMX Channel {self._channel}")
-        self._unique_id = self._name.lower().replace(' ', '_')
-		
+        self._unique_id = self._name.lower().replace(" ", "_")
+
         self._type = light.get(CONF_TYPE, default_type)
 
         self._fade_time = light.get(CONF_TRANSITION)
-        self._brightness = light.get(CONF_DEFAULT_LEVEL,
-                                     dmx_gateway.default_level)
+        self._brightness = light.get(CONF_DEFAULT_LEVEL, dmx_gateway.default_level)
         self._rgb = light.get(CONF_DEFAULT_COLOR, COLOR_MAP.get(self._type))
         self._white_value = light.get(ATTR_WHITE_VALUE, 0)
         self._color_temp = int((self.min_mireds + self.max_mireds) / 2)
-        self._channel_setup = light.get(CONF_CHANNEL_SETUP, '')
+        self._channel_setup = light.get(CONF_CHANNEL_SETUP, "")
 
         self._unique_id = str(dmx_gateway.universe) + "_" + str(self._channel)
 
@@ -258,19 +292,22 @@ class DMXLight(LightEntity, RestoreEntity):
         else:
             self._channel_count = CHANNEL_COUNT_MAP.get(self._type, 1)
 
-        self._channels = [channel for channel in range(self._channel,
-                                                       self._channel +
-                                                       self._channel_count)]
+        self._channels = [
+            channel
+            for channel in range(self._channel, self._channel + self._channel_count)
+        ]
         self._features = FEATURE_MAP.get(self._type)
 
         # Brightness needs to be set to the maximum default RGB level, then
         # scale up the RGB values to what HA uses
         if self._rgb:
-            self._brightness = max(self._rgb) * (self._brightness/255)
+            self._brightness = max(self._rgb) * (self._brightness / 255)
 
         self._default_off = light.get(CONF_DEFAULT_OFF, False)
 
-        if self._default_off == False and (self._brightness >= 0 or self._white_value >= 0):
+        if self._default_off is False and (
+            self._brightness >= 0 or self._white_value >= 0
+        ):
             self._state = STATE_ON
         else:
             self._state = STATE_OFF
@@ -278,8 +315,7 @@ class DMXLight(LightEntity, RestoreEntity):
         # Send default levels to the controller
         self._send_when_added = send_immediately
 
-        self._dmx_gateway.set_channels(self._channels, self.dmx_values if self._default_off == False else 0,
-                                       False)
+        self._dmx_gateway.set_channels(self._channels, self.dmx_values, False)
 
         _LOGGER.debug(f"Intialized DMX light {self._name}")
 
@@ -301,10 +337,11 @@ class DMXLight(LightEntity, RestoreEntity):
     @property
     def device_state_attributes(self):
         data = {}
-        data['dmx_universe'] = self._dmx_gateway._universe
-        data['dmx_channels'] = self._channels
+        data["dmx_universe"] = self._dmx_gateway._universe
+        data["dmx_channels"] = self._channels
         data[CONF_TRANSITION] = self._fade_time
-        data['dmx_values'] = self.dmx_values
+        data["dmx_values"] = self.dmx_values
+        data["rgb"] = self._rgb
         return data
 
     @property
@@ -323,9 +360,11 @@ class DMXLight(LightEntity, RestoreEntity):
     @property
     def white_value(self):
         """Return the white value of this light between 0..255."""
-        if ((self._type == CONF_LIGHT_TYPE_RGBW) or
-            (self._type == CONF_LIGHT_TYPE_RGBWD) or
-                (self._type == CONF_LIGHT_TYPE_DRGBW)):
+        if (
+            (self._type == CONF_LIGHT_TYPE_RGBW)
+            or (self._type == CONF_LIGHT_TYPE_RGBWD)
+            or (self._type == CONF_LIGHT_TYPE_DRGBW)
+        ):
             return self._white_value
         else:
             return None
@@ -355,20 +394,20 @@ class DMXLight(LightEntity, RestoreEntity):
             # Split the white component out from the scaled RGB values
             rgba = scale_rgb_to_brightness(self._rgb, self._brightness)
             amber = rgba[0]
-            if (amber > rgba[1] * 2):
+            if amber > rgba[1] * 2:
                 amber = rgba[1] * 2
             rgba[0] = rgba[0] - amber
-            rgba[1] = round(rgba[1] - amber/2)
+            rgba[1] = round(rgba[1] - amber / 2)
             rgba.append(amber)
             return rgba
         elif self._type == CONF_LIGHT_TYPE_RGBAW:
             # Split the white component out from the scaled RGB values
             values = scale_rgb_to_brightness(self._rgb, self._brightness)
             amber = values[0]
-            if (amber > values[1] * 2):
+            if amber > values[1] * 2:
                 amber = values[1] * 2
             values[0] = values[0] - amber
-            values[1] = round(values[1] - amber/2)
+            values[1] = round(values[1] - amber / 2)
             values.append(amber)
             values.append(round(self._white_value * (self._brightness / 255)))
             return values
@@ -412,16 +451,17 @@ class DMXLight(LightEntity, RestoreEntity):
             # T = temperature (255 = hot, 0 = cold)
 
             ww_fraction = (self._color_temp - self.min_mireds) / (
-                           self.max_mireds - self.min_mireds)
+                self.max_mireds - self.min_mireds
+            )
             cw_fraction = 1 - ww_fraction
             max_fraction = max(ww_fraction, cw_fraction)
 
             switcher = {
-                'd': self._brightness,
-                't': 255 - (ww_fraction * 255),
-                'T': ww_fraction * 255,
-                'h': self.is_on * self._brightness * (ww_fraction / max_fraction),
-                'c': self.is_on * self._brightness * (cw_fraction / max_fraction),
+                "d": self._brightness,
+                "t": 255 - (ww_fraction * 255),
+                "T": ww_fraction * 255,
+                "h": self.is_on * self._brightness * (ww_fraction / max_fraction),
+                "c": self.is_on * self._brightness * (cw_fraction / max_fraction),
             }
 
             values = list()
@@ -471,7 +511,7 @@ class DMXLight(LightEntity, RestoreEntity):
         # Update state from service call
         if ATTR_BRIGHTNESS in kwargs:
             self._brightness = kwargs[ATTR_BRIGHTNESS]
-        
+
         if self._brightness == 0:
             self._brightness = 255
 
@@ -485,11 +525,18 @@ class DMXLight(LightEntity, RestoreEntity):
         if ATTR_COLOR_TEMP in kwargs:
             self._color_temp = kwargs[ATTR_COLOR_TEMP]
 
-        _LOGGER.debug("Setting light '%s' to %s with transition time %i",
-                      self._name, repr(self.dmx_values), transition)
+        _LOGGER.debug(
+            "Setting light '%s' to %s with transition time %i",
+            self._name,
+            repr(self.dmx_values),
+            transition,
+        )
+
         asyncio.ensure_future(
             self._dmx_gateway.set_channels_async(
-                self._channels, self.dmx_values))
+                self._channels, self.dmx_values, transition=transition
+            )
+        )
         self.async_schedule_update_ha_state()
 
     @asyncio.coroutine
@@ -506,15 +553,18 @@ class DMXLight(LightEntity, RestoreEntity):
         transition = kwargs.get(ATTR_TRANSITION, self._fade_time)
 
         _LOGGER.debug("Turning off '%s' with transition %i", self._name, transition)
-        asyncio.ensure_future(self._dmx_gateway.set_channels_async(
-            self._channels, 0, transition=transition))
+        asyncio.ensure_future(
+            self._dmx_gateway.set_channels_async(
+                self._channels, 0, transition=transition
+            )
+        )
         self._state = STATE_OFF
         self.async_schedule_update_ha_state()
 
     @callback
     def _schedule_immediate_update(self):
         self.async_schedule_update_ha_state(True)
-        
+
     def update(self):
         """Fetch update state."""
         # Nothing to return
@@ -526,30 +576,35 @@ class DMXLight(LightEntity, RestoreEntity):
         if not old_state:
             return
 
-        if self._type != CONF_LIGHT_TYPE_FIXED:
+        self._state = old_state.state
 
-            self._state = old_state.state
-            if self._default_off:
-                self._state = STATE_OFF
+        if old_state.attributes.get("rgb"):
+            self._rgb = old_state.attributes.get("rgb")
 
-            old_dmx_values = old_state.attributes.get('dmx_values')
+        if old_state.attributes.get("brightness"):
+            self._brightness = old_state.attributes.get("brightness")
 
-            self._brightness = old_dmx_values
-            _LOGGER.debug("Old brightness is", old_dmx_values)
+        if old_state.attributes.get("dmx_values"):
+            old_dmx_values = old_state.attributes.get("dmx_values")
+            _LOGGER.debug(
+                f"DMX state restored: {self._channel} <- {str(old_dmx_values)}"
+            )
+            _LOGGER.debug(
+                f"DMX entity brightness restored: {self._channel} <- {str(self._brightness)}"
+            )
 
-        if self._state == STATE_OFF:
-            values = 0
-        else:
-            values = self.dmx_values
+            asyncio.ensure_future(
+                self._dmx_gateway.set_channels_async(
+                    self._channels, old_dmx_values, self._send_when_added
+                )
+            )
 
-        asyncio.ensure_future(self._dmx_gateway.set_channels_async(
-            self._channels, values, self._send_when_added))
+        # self._dmx_gateway.set_channels(self._channels, self.dmx_values if self._default_off == False else 0, self._send_when_added)
 
-        #self._dmx_gateway.set_channels(self._channels, self.dmx_values if self._default_off == False else 0, self._send_when_added)
-
-        #async_dispatcher_connect(
+        # async_dispatcher_connect(
         #    self._hass, DATA_UPDATED, self._schedule_immediate_update
-        #)
+        # )
+
 
 class DMXGateway(object):
     """
@@ -591,17 +646,18 @@ class DMXGateway(object):
 
         for x, channel in enumerate(channels):
             default_value = value_arr[min(x, len(value_arr) - 1)]
-            self._channels[channel-1] = int(default_value)
+            self._channels[channel - 1] = int(default_value)
 
         if send_immediately:
             self.send()
 
     @asyncio.coroutine
-    def set_channels_async(self, channels, value, transition=0, fps=40,
-                           send_immediately=True):
+    def set_channels_async(
+        self, channels, value, transition=0, fps=40, send_immediately=True
+    ):
         _last_command_ids[channels[0]] = random.randint(1, 1000000)
         currently_exec_cmd_id = _last_command_ids[channels[0]]
-        
+
         original_values = self._channels[:]
         # Minimum of one frame for a snap transition
         number_of_frames = max(int(transition * fps), 1)
@@ -611,25 +667,28 @@ class DMXGateway(object):
         if type(value) is tuple or type(value) is list:
             value_arr = value
 
-        for i in range(1, number_of_frames+1):
-            values_changed = False
+        for i in range(1, number_of_frames + 1):
+            values_changed = ""
 
             for x, channel in enumerate(channels):
                 target_value = value_arr[min(x, len(value_arr) - 1)]
-                increment = (target_value -
-                             original_values[channel - 1])/(number_of_frames)
+                increment = (target_value - original_values[channel - 1]) / (
+                    number_of_frames
+                )
 
-                next_value = int(round(
-                    original_values[channel - 1] + (increment * i)))
+                next_value = int(round(original_values[channel - 1] + (increment * i)))
 
                 if self._channels[channel - 1] != next_value:
+                    values_changed += (
+                        f"{channel}: {self._channels[channel - 1]} -> {next_value},"
+                    )
                     self._channels[channel - 1] = next_value
-                    values_changed = True
 
-            if values_changed and send_immediately:
+            if len(values_changed) and send_immediately:
                 self.send()
+                _LOGGER.debug(f"DMX update: {values_changed}")
 
-            yield from asyncio.sleep(1. / fps)
+            yield from asyncio.sleep(1.0 / fps)
 
             # Abort transition if new command has been sent
             if currently_exec_cmd_id != _last_command_ids[channels[0]]:
@@ -640,7 +699,7 @@ class DMXGateway(object):
         """
         Return the current value we have for the specified channel.
         """
-        return self._channels[int(channel)-1]
+        return self._channels[int(channel) - 1]
 
     @property
     def default_level(self):
@@ -650,13 +709,13 @@ class DMXGateway(object):
     def universe(self):
         return self._universe
 
+
 class ArtNetGateway(DMXGateway):
     """
     Interface with a ArtNet device
     """
 
-    def __init__(self, host, universe, port, default_level,
-                 number_of_channels):
+    def __init__(self, host, universe, port, default_level, number_of_channels):
         super().__init__(host, universe, port, default_level, number_of_channels)
 
         # Initialise socket
@@ -666,10 +725,10 @@ class ArtNetGateway(DMXGateway):
         packet.extend(map(ord, "Art-Net"))
         packet.append(0x00)  # Null terminate Art-Net
         packet.extend([0x00, 0x50])  # Opcode ArtDMX 0x5000 (Little endian)
-        packet.extend([0x00, 0x0e])  # Protocol version 14
+        packet.extend([0x00, 0x0E])  # Protocol version 14
         packet.extend([0x00, 0x00])  # Sequence, Physical
         packet.extend([self._universe, 0x00])  # Universe
-        packet.extend(pack('>h', self._number_of_channels))
+        packet.extend(pack(">h", self._number_of_channels))
         self._base_packet = packet
 
     def send(self):
@@ -682,21 +741,23 @@ class ArtNetGateway(DMXGateway):
         self._socket.sendto(packet, (self._host, self._port))
         _LOGGER.debug(f"Sending Art-Net frame to {self._host}:{self._port}")
 
+
 class KiNetGateway(DMXGateway):
     """
     Interface with a KiNet device
     """
 
-    def __init__(self, host, universe, port, default_level,
-                 number_of_channels):
+    def __init__(self, host, universe, port, default_level, number_of_channels):
         super().__init__(host, universe, port, default_level, number_of_channels)
 
         # Initialise socket
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP
 
         packet = bytearray()
-        packet.extend(pack(">IHH", 0x0401dc4a, 0x0100, 0x0101)) # Magic, version, type
-        packet.extend(pack(">IBBHI", 0, 0, 0, 0, 0xffffffff)) # sequence, port, padding, flags, timer
+        packet.extend(pack(">IHH", 0x0401DC4A, 0x0100, 0x0101))  # Magic, version, type
+        packet.extend(
+            pack(">IBBHI", 0, 0, 0, 0, 0xFFFFFFFF)
+        )  # sequence, port, padding, flags, timer
         packet.extend(pack("B", self._universe))  # Universe
         self._base_packet = packet
 
@@ -710,9 +771,12 @@ class KiNetGateway(DMXGateway):
         self._socket.sendto(packet, (self._host, self._port))
         _LOGGER.debug(f"Sending KiNet frame to {self._host}:{self._port}")
 
+
 def scale_rgb_to_brightness(rgb, brightness):
-    brightness_scale = (brightness / 255)
-    scaled_rgb = [round(rgb[0] * brightness_scale),
-                  round(rgb[1] * brightness_scale),
-                  round(rgb[2] * brightness_scale)]
+    brightness_scale = brightness / 255
+    scaled_rgb = [
+        round(rgb[0] * brightness_scale),
+        round(rgb[1] * brightness_scale),
+        round(rgb[2] * brightness_scale),
+    ]
     return scaled_rgb
