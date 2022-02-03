@@ -335,7 +335,7 @@ class DMXLight(LightEntity, RestoreEntity):
         return self._brightness
 
     @property
-    def device_state_attributes(self):
+    def extra_state_attributes(self):
         data = {}
         data["dmx_universe"] = self._dmx_gateway._universe
         data["dmx_channels"] = self._channels
