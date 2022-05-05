@@ -81,11 +81,13 @@ CONF_PROTOCOL = "protocol"
 # Protocols
 CONF_PROTOCOL_ARTNET = "artnet"
 CONF_PROTOCOL_KINET = "kinet"
-CONF_PROTOCOLS = [CONF_PROTOCOL_ARTNET, CONF_PROTOCOL_KINET]
+CONF_PROTOCOL_SACN = "sacn"
+CONF_PROTOCOLS = [CONF_PROTOCOL_ARTNET, CONF_PROTOCOL_KINET, CONF_PROTOCOL_SACN]
 
 # Ports
 CONF_PORT_ARTNET = 6454
 CONF_PORT_KINET = 6038
+CONF_PORT_SACN = 5568
 
 # Light types
 CONF_LIGHT_TYPE_DIMMER = "dimmer"
@@ -248,6 +250,12 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
         if not port:
             port = CONF_PORT_KINET
         dmx_gateway = KiNetGateway(
+            host, universe, port, overall_default_level, config[CONF_DMX_CHANNELS]
+        )
+    elif protocol == CONF_PROTOCOL_SACN:
+        if not port:
+            port = CONF_PORT_SACN
+        dmx_gateway = sACNGateway(
             host, universe, port, overall_default_level, config[CONF_DMX_CHANNELS]
         )
 
@@ -770,6 +778,53 @@ class KiNetGateway(DMXGateway):
         packet.extend(pack("512B", *self._channels))
         self._socket.sendto(packet, (self._host, self._port))
         _LOGGER.debug(f"Sending KiNet frame to {self._host}:{self._port}")
+
+class sACNGateway(DMXGateway):
+    """
+    Interface with a sACN device
+    """
+
+    def __init__(self, host, universe, port, default_level, number_of_channels):
+        super().__init__(host, universe, port, default_level, number_of_channels)
+
+        # Initialise socket
+        self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP
+        
+        packet = bytearray()
+        #Root layer
+        packet.extend([0x00, 0x01, 0x00, 0x00]) # Preamble Size, Post-amble Size
+        packet.extend(map(ord,"ASC-E1.17")) # Packet Identifier
+        packet.extend([0x00, 0x00, 0x00, 0x72, 0x57]) # padding x 3 , Flags, Length
+        packet.extend(pack(">l",4)) # Root Layer Vector
+        packet.extend(map(ord,"ThisIsMyCIDxxxxx")) # CID, a unique identifier
+        #Framing layer
+        packet.extend([0x72, 0x57]) # Flags and length
+        packet.extend(pack(">l",2)) # Data type ID
+        packet.extend(map(ord,"-HA-DMX-Over-IP--HA-DMX-Over-IP--HA-DMX-Over-IP--HA-DMX-Over-IP-")) # Source Name
+        packet.extend([0xFF]) # Priority
+        packet.extend(pack(">H",50)) # Synchronization universe
+        packet.extend([0x00]) # SEQUENCE, overwritten in Send
+        packet.extend([0x00]) # Options
+        packet.extend(pack(">H", self._universe)) #UNIVERSE
+        #Data layer
+        packet.extend([0x72, 0x0d, 0x02, 0xa1, 0x00, 0x00, 0x00, 0x01, 0x02, 0x01, 0x00])
+        self._base_packet = packet
+        self.sequence = 0
+
+    def send(self):
+        """
+        Send the current state of DMX values to the gateway via UDP packet.
+        """
+        # Copy the base packet then add the channel array
+        packet = self._base_packet[0:111]
+        packet.extend(pack(">B",self.sequence))
+        self.sequence += 1
+        if self.sequence == 200:
+            self.sequence = 1
+        packet.extend(self._base_packet[112:])
+        packet.extend(self._channels)
+        self._socket.sendto(packet, (self._host, self._port))
+        _LOGGER.debug(f"Sending sACN frame to {self._host}:{self._port}")
 
 
 def scale_rgb_to_brightness(rgb, brightness):
