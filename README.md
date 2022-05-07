@@ -70,8 +70,8 @@ light:
 
 Configuration variables:
 - **host** (*Required*): Gateway address
-- **port** (*Optional; default=6454 or 6038*): Gateway port
-- **protocol** (*Optional; default=artnet*): Gateway protocol: artnet or kinet
+- **port** (*Optional; default=6454 or 6038 or 5568, depending on protocol*): Gateway port
+- **protocol** (*Optional; default=artnet*): Gateway protocol: artnet, kinet, or sacn
 - **universe** (*Optional; default=0*): Universe for these DMX channels
 - **dmx_channels** (*Optional; default=512*): The number of DMX channels to send a value for (even number between 2 & 512)
 - **default_level** (*Optional; default=255*): Default level for Home Assistant to assume all lights have been set to - in most cases 0 would make sense. Note Home Assistant will not send these values to the gateway until an explicit change is made unless send_levels_on_startup is True.
@@ -139,6 +139,8 @@ logger:
 - DMX King eDMX1
 - Enttec ODE MK2
 - Enttec DIN Ethergate
+- esPixelStick
+- Falcon F16v2
 
 ## See Also
 
