@@ -16,26 +16,22 @@ try:
   from homeassistant.components.light import (ATTR_BRIGHTNESS,
                                               ATTR_HS_COLOR,
                                               ATTR_TRANSITION,
-                                              ATTR_WHITE_VALUE,
                                               ATTR_COLOR_TEMP,
                                               LightEntity,
                                               PLATFORM_SCHEMA,
                                               SUPPORT_BRIGHTNESS,
                                               SUPPORT_COLOR,
-                                              SUPPORT_WHITE_VALUE,
                                               SUPPORT_TRANSITION,
                                               SUPPORT_COLOR_TEMP)
 except ImportError:
   from homeassistant.components.light import (ATTR_BRIGHTNESS,
                                               ATTR_HS_COLOR,
                                               ATTR_TRANSITION,
-                                              ATTR_WHITE_VALUE,
                                               ATTR_COLOR_TEMP,
                                               Light as LightEntity,
                                               PLATFORM_SCHEMA,
                                               SUPPORT_BRIGHTNESS,
                                               SUPPORT_COLOR,
-                                              SUPPORT_WHITE_VALUE,
                                               SUPPORT_TRANSITION,
                                               SUPPORT_COLOR_TEMP)
 from homeassistant.util.color import color_rgb_to_rgbw
@@ -102,17 +98,17 @@ FEATURE_MAP[CONF_LIGHT_TYPE_RGB] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION |
 FEATURE_MAP[CONF_LIGHT_TYPE_RGBA] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION |
                                      SUPPORT_COLOR)
 FEATURE_MAP[CONF_LIGHT_TYPE_RGBAW] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION |
-                                     SUPPORT_COLOR | SUPPORT_WHITE_VALUE)
+                                     SUPPORT_COLOR)
 FEATURE_MAP[CONF_LIGHT_TYPE_RGBW] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION |
-                                     SUPPORT_COLOR | SUPPORT_WHITE_VALUE)
+                                     SUPPORT_COLOR)
 FEATURE_MAP[CONF_LIGHT_TYPE_RGBW_AUTO] = (SUPPORT_BRIGHTNESS |
                                           SUPPORT_TRANSITION | SUPPORT_COLOR)
 FEATURE_MAP[CONF_LIGHT_TYPE_DRGB] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION |
                                      SUPPORT_COLOR)
 FEATURE_MAP[CONF_LIGHT_TYPE_DRGBW] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION |
-                                      SUPPORT_COLOR | SUPPORT_WHITE_VALUE)
+                                      SUPPORT_COLOR)
 FEATURE_MAP[CONF_LIGHT_TYPE_RGBWD] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION |
-                                      SUPPORT_COLOR | SUPPORT_WHITE_VALUE)
+                                      SUPPORT_COLOR)
 FEATURE_MAP[CONF_LIGHT_TYPE_SWITCH] = 0
 FEATURE_MAP[CONF_LIGHT_TYPE_CUSTOM_WHITE] = (SUPPORT_BRIGHTNESS | SUPPORT_TRANSITION |
                                      SUPPORT_COLOR_TEMP)
@@ -145,7 +141,6 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
             vol.Optional(CONF_NAME): cv.string,
             vol.Optional(CONF_TYPE): vol.In(CONF_LIGHT_TYPES),
             vol.Optional(CONF_DEFAULT_LEVEL): cv.byte,
-            vol.Optional(ATTR_WHITE_VALUE): cv.byte,
             vol.Optional(CONF_DEFAULT_COLOR): vol.All(
                 vol.ExactSequence((cv.byte, cv.byte, cv.byte)),
                 vol.Coerce(tuple)),
@@ -198,7 +193,6 @@ class DMXLight(LightEntity):
         self._brightness = light.get(CONF_DEFAULT_LEVEL,
                                      dmx_gateway.default_level)
         self._rgb = light.get(CONF_DEFAULT_COLOR, COLOR_MAP.get(self._type))
-        self._white_value = light.get(ATTR_WHITE_VALUE, 0)
         self._color_temp = int((self.min_mireds + self.max_mireds) / 2)
         self._channel_setup = light.get(CONF_CHANNEL_SETUP, '')
 
@@ -218,7 +212,7 @@ class DMXLight(LightEntity):
         if self._rgb:
             self._brightness = max(self._rgb) * (self._brightness/255)
 
-        if self._brightness > 0 or self._white_value > 0:
+        if self._brightness > 0:
             self._state = STATE_ON
         else:
             self._state = STATE_OFF
@@ -262,16 +256,6 @@ class DMXLight(LightEntity):
             return None
 
     @property
-    def white_value(self):
-        """Return the white value of this light between 0..255."""
-        if ((self._type == CONF_LIGHT_TYPE_RGBW) or
-            (self._type == CONF_LIGHT_TYPE_RGBWD) or
-                (self._type == CONF_LIGHT_TYPE_DRGBW)):
-            return self._white_value
-        else:
-            return None
-
-    @property
     def min_mireds(self):
         """Return the coldest color_temp that this light supports."""
         # Default to the Philips Hue value that HA has always assumed
@@ -311,11 +295,11 @@ class DMXLight(LightEntity):
             values[0] = values[0] - amber
             values[1] = round(values[1] - amber/2)
             values.append(amber)
-            values.append(round(self._white_value * (self._brightness / 255)))
+            values.append(0)
             return values
         elif self._type == CONF_LIGHT_TYPE_RGBW:
             rgbw = scale_rgb_to_brightness(self._rgb, self._brightness)
-            rgbw.append(round(self._white_value * (self._brightness / 255)))
+            rgbw.append(0)
             return rgbw
         elif self._type == CONF_LIGHT_TYPE_RGBW_AUTO:
             # Split the white component out from the scaled RGB values
@@ -329,13 +313,13 @@ class DMXLight(LightEntity):
         elif self._type == CONF_LIGHT_TYPE_DRGBW:
             drgbw = [self._brightness]
             drgbw.extend(self._rgb if self._brightness > 0 else [0, 0, 0])
-            drgbw.append(self._white_value if self.brightness > 0 else 0)
+            drgbw.append(0)
             _LOGGER.debug("drgbw: " + ', '.join([str(x) for x in drgbw]));
             return drgbw
         elif self._type == CONF_LIGHT_TYPE_RGBWD:
             rgbwd = list()
             rgbwd.extend(self._rgb if self._brightness > 0 else [0, 0, 0])
-            rgbwd.append(self._white_value if self._brightness > 0 else 0)
+            rgbwd.append(0)
             rgbwd.append(self._brightness)
             _LOGGER.debug("rgbwd: " + ', '.join([str(x) for x in rgbwd]));
             return rgbwd
@@ -415,10 +399,6 @@ class DMXLight(LightEntity):
 
         if ATTR_HS_COLOR in kwargs:
             self._rgb = color_util.color_hs_to_RGB(*kwargs[ATTR_HS_COLOR])
-            # self._white_value = color_rgb_to_rgbw(*self._rgb)[3]
-
-        if ATTR_WHITE_VALUE in kwargs:
-            self._white_value = kwargs[ATTR_WHITE_VALUE]
 
         if ATTR_COLOR_TEMP in kwargs:
             self._color_temp = kwargs[ATTR_COLOR_TEMP]
