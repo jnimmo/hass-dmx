@@ -1,6 +1,14 @@
-# Home Assistant DMX over IP Light Platform (Art-Net & KiNet)
+# Home Assistant DMX over IP Light Platform (deprecated)
+
+**_This component is no longer maintained and is unsupported in Home Assistant 2022.9.0._** 
+_Please switch to [Breina](https://github.com/Breina)'s fork [Home Assistant component for Art-Net LED (DMX)](https://github.com/Breina/ha-artnet-led), which includes contributions from [spacemanspiff2007](https://github.com/spacemanspiff2007) and [corb3000](https://github.com/corb3000)._ 
+
+---
 
 The DMX integration for Home Assistant allows you to send DMX values to an [Art-Net](http://www.art-net.org.uk) or [KiNet](https://www.colorkinetics.com/) capable DMX interface. This component is a one way integration which sends [Art-Net](https://en.wikipedia.org/wiki/Art-Net) or KiNet UDP packets to the DMX interface. This integration uses no external libraries and requires at least Python version 3.5.
+
+
+
 
 ## Prerequisites
 
