@@ -379,8 +379,7 @@ class DMXLight(LightEntity):
     def fade_time(self, value):
         self._fade_time = value
 
-    @asyncio.coroutine
-    def async_turn_on(self, **kwargs):
+    async def async_turn_on(self, **kwargs):
         """Instruct the light to turn on.
 
         Move to using one method on the DMX class to set/fade either a single
@@ -409,8 +408,7 @@ class DMXLight(LightEntity):
                 self._channels, self.dmx_values, transition=transition))
         self.async_schedule_update_ha_state()
 
-    @asyncio.coroutine
-    def async_turn_off(self, **kwargs):
+    async def async_turn_off(self, **kwargs):
         """Instruct the light to turn off.
 
         If a transition time has been specified in
@@ -489,8 +487,7 @@ class DMXGateway(object):
         if send_immediately:
             self.send()
 
-    @asyncio.coroutine
-    def set_channels_async(self, channels, value, transition=0, fps=40,
+    async def set_channels_async(self, channels, value, transition=0, fps=40,
                            send_immediately=True):
         original_values = self._channels[:]
         # Minimum of one frame for a snap transition
